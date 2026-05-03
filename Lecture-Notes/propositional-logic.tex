@@ -4692,8 +4692,8 @@ to encode and solve the same Sudoku puzzle using this optimized library. We will
 found in the notebook \texttt{11-Logic-Solver-Sudoku.ipynb}. 
 
 \subsection{Implementation of the Sudoku Solver}
-
-We begin by defining the basic types and a utility function to generate sequences of numbers. This is shown in Figure \ref{fig:logicsolver-range}.
+We begin by defining the basic types and a utility function to generate sequences of numbers. This is shown in
+Figure \ref{fig:logicsolver-range}. 
 
 \begin{figure}[!ht]
   \centering
@@ -4709,7 +4709,6 @@ We begin by defining the basic types and a utility function to generate sequence
     type Variable        = string;
     type NegatedVariable = `-${string}`; 
     type Literal         = Variable | NegatedVariable;
-    type Clause          = Literal[];
     
     function range(start: number, stop: number): number[] {
         return Array.from({ length: stop - start + 1 }, (_, index) => start + index);
@@ -4720,7 +4719,10 @@ We begin by defining the basic types and a utility function to generate sequence
   \label{fig:logicsolver-range}
 \end{figure} %$
 
-The TypeScript types \texttt{Variable}, \texttt{NegatedVariable}, \texttt{Literal}, and \texttt{Clause} establish how boolean logic primitives are formatted as strings. The \texttt{range} function acts as a helper to easily generate arrays of numbers, such as $[1, \dots, 9]$, which we need for iterating over the Sudoku grid.
+The TypeScript types \texttt{Variable}, \texttt{NegatedVariable}, \texttt{Literal}, and \texttt{Clause}
+establish how boolean logic primitives are formatted as strings. The \texttt{range} function acts as a helper
+to easily generate arrays of numbers, such as $[1, \dots, 9]$, which we need for iterating over the Sudoku
+grid. 
 
 \begin{figure}[!ht]
   \centering
@@ -4781,9 +4783,13 @@ we can negate them using the \texttt{complement} function, both shown in Figure 
   \label{fig:logicsolver-varName}
 \end{figure} %$
 
-The \texttt{varName} function creates strings like \texttt{"Q<1,2,3>"} to represent the boolean variable stating that row 1, column 2 holds the digit 3. The \texttt{complement} function returns the logical negation of a literal by either adding or removing a leading minus sign (\texttt{-}), satisfying the format expected by \texttt{Logic-Solver}.
+The \texttt{varName} function creates strings like \texttt{"Q<1,2,3>"} to represent the boolean variable
+stating that row 1, column 2 holds the digit 3. The \texttt{complement} function returns the logical negation
+of a literal by either adding or removing a leading minus sign (\texttt{-}), satisfying the format expected by
+\texttt{Logic-Solver}. 
 
-We now define the logical constraints, starting with the requirement that a specific digit must appear exactly once within a given set of board positions.
+We now define the logical constraints, starting with the requirement that a specific digit must appear exactly
+once within a given set of board positions. 
 
 \begin{figure}[!ht]
   \centering
@@ -4797,11 +4803,10 @@ We now define the logical constraints, starting with the requirement that a spec
                 xrightmargin  = 0.0cm
               ]{typescript}
     type Position = [number, number];
-
+              
     function exactlyOneForDigit(L: Position[], digit: number): Logic.Formula {
-        return Logic.exactlyOne(
-            L.map(([row, col]) => varName(row, col, digit))
-        ) as Logic.Formula;
+        const variables = L.map(([row, col]) => varName(row, col, digit));
+        return Logic.exactlyOne(variables) as Logic.Formula;
     }
 \end{minted}
 \vspace*{-0.3cm}
@@ -4809,8 +4814,10 @@ We now define the logical constraints, starting with the requirement that a spec
   \label{fig:logicsolver-exactlyOneForDigit}
 \end{figure}
 
-In Figure \ref{fig:logicsolver-exactlyOneForDigit}, we define \texttt{Position} as a tuple of row and column. The \texttt{exactlyOneForDigit} function leverages \texttt{Logic.exactlyOne}, a powerful cardinality constraint built directly into \texttt{Logic-Solver}. It takes a list of positions \texttt{L} and ensures that the specified \texttt{digit} is placed in exactly one of those positions.
-
+In Figure \ref{fig:logicsolver-exactlyOneForDigit}, we define \texttt{Position} as a tuple of row and
+column. The \texttt{exactlyOneForDigit} function leverages \texttt{Logic.exactlyOne}, a powerful cardinality
+constraint built directly into \texttt{Logic-Solver}. It takes a list of positions \texttt{L} and ensures that
+the specified \texttt{digit} is placed in exactly one of those positions. 
 To apply this to all digits, we use the function \texttt{exactlyOneForEveryDigit}.
 
 \begin{figure}[!ht]
@@ -4824,8 +4831,9 @@ To apply this to all digits, we use the function \texttt{exactlyOneForEveryDigit
                 xleftmargin   = 0.0cm,
                 xrightmargin  = 0.0cm
               ]{typescript}
-    function exactlyOneForEveryDigit(L: Position[]): Logic.Formula[] {
-        return range(1, 9).map(d => exactlyOneForDigit(L, d));
+    function exactlyOneDigit(row: number, col: number): Logic.Formula {
+        const variables = range(1, 9).map(d => varName(row, col, d));
+        return Logic.exactlyOne(variables) as Logic.Formula;
     }
 \end{minted}
 \vspace*{-0.3cm}
@@ -4833,9 +4841,10 @@ To apply this to all digits, we use the function \texttt{exactlyOneForEveryDigit
   \label{fig:logicsolver-exactlyOneForEveryDigit}
 \end{figure}
 
-The \texttt{exactlyOneForEveryDigit} function (Figure \ref{fig:logicsolver-exactlyOneForEveryDigit}) maps over the numbers 1 through 9, returning an array of formulas. This effectively states that within the given set of coordinates \texttt{L} (which will later represent a full row, column, or block), every digit from 1 to 9 must occur exactly once.
-
-Similarly, we must ensure that every single cell contains exactly one digit.
+The \texttt{exactlyOneForEveryDigit} function (Figure \ref{fig:logicsolver-exactlyOneForEveryDigit}) maps over
+the numbers 1 through 9, returning an array of formulas. This effectively states that within the given set of
+coordinates \texttt{L} (which will later represent a full row, column, or block), every digit from 1 to 9 must
+occur exactly once. 
 
 \begin{figure}[!ht]
   \centering
@@ -4859,9 +4868,11 @@ Similarly, we must ensure that every single cell contains exactly one digit.
   \label{fig:logicsolver-exactlyOneDigit}
 \end{figure}
 
-The \texttt{exactlyOneDigit} function in Figure \ref{fig:logicsolver-exactlyOneDigit} enforces that for a fixed \texttt{row} and \texttt{col}, exactly one of the variables corresponding to digits 1 through 9 evaluates to \texttt{true}.
+Furthermore, we must ensure that every single cell contains exactly one digit.  The \texttt{exactlyOneDigit}
+function in Figure \ref{fig:logicsolver-exactlyOneDigit} enforces that for a fixed \texttt{row} and
+\texttt{col}, exactly one of the variables corresponding to digits 1 through 9 evaluates to \texttt{true}. 
 
-We must also convert the initial numbers from the puzzle grid into logical facts.
+
 
 \begin{figure}[!ht]
   \centering
@@ -4892,9 +4903,12 @@ We must also convert the initial numbers from the puzzle grid into logical facts
   \label{fig:logicsolver-constraintsFromPuzzle}
 \end{figure}
 
-The \texttt{constraintsFromPuzzle} function (Figure \ref{fig:logicsolver-constraintsFromPuzzle}) iterates over the $9 \times 9$ array. For every non-asterisk entry, it generates the corresponding variable string and adds it to the \texttt{Facts} array. It then combines all these facts using \texttt{Logic.and}, creating a single formula that anchors the starting state of the board.
+We must also convert the initial numbers from the puzzle grid into logical facts.
+The function \texttt{constraintsFromPuzzle}  (Figure \ref{fig:logicsolver-constraintsFromPuzzle}) iterates over
+the $9 \times 9$ array. For every non-asterisk entry, it generates the corresponding variable string and adds
+it to the \texttt{Facts} array. It then combines all these facts using \texttt{Logic.and}, creating a single
+formula that anchors the starting state of the board. 
 
-To validate the $3 \times 3$ macro-blocks, we need a helper function to calculate coordinate translations.
 
 \begin{figure}[!ht]
   \centering
@@ -4922,9 +4936,11 @@ To validate the $3 \times 3$ macro-blocks, we need a helper function to calculat
   \label{fig:logicsolver-getBlockCells}
 \end{figure}
 
-The \texttt{getBlockCells} function in Figure \ref{fig:logicsolver-getBlockCells} takes the 0-based index of a macro-block (\texttt{r} and \texttt{c}, both spanning 0 to 2) and returns the nine 1-based coordinates \texttt{[row, col]} on the board that belong to that block.
+To validate the $3 \times 3$ macro-blocks, we need a helper function to calculate coordinate translations.
+The \texttt{getBlockCells} function in Figure \ref{fig:logicsolver-getBlockCells} takes the 0-based index of a
+macro-block (\texttt{r} and \texttt{c}, both spanning 0 to 2) and returns the nine 1-based coordinates
+\texttt{[row, col]} on the board that belong to that block. 
 
-With all helpers in place, we construct the master function that binds everything together.
 
 \begin{figure}[!ht]
   \centering
@@ -4974,7 +4990,10 @@ With all helpers in place, we construct the master function that binds everythin
   \label{fig:logicsolver-allConstraints}
 \end{figure}
 
-The \texttt{allConstraints} function (Figure \ref{fig:logicsolver-allConstraints}) takes a \texttt{Logic.Solver} instance and sequentially feeds it all our rules via \texttt{solver.require(...)}. It ensures:
+With all helpers in place, we construct the master function that binds everything together.
+The \texttt{allConstraints} function (Figure \ref{fig:logicsolver-allConstraints}) takes a
+\texttt{Logic.Solver} instance and sequentially feeds it all our rules via \texttt{solver.require(...)}. It
+ensures: 
 \begin{enumerate}
     \item The initial grid values are respected.
     \item Each cell contains exactly one digit.
@@ -4984,10 +5003,9 @@ The \texttt{allConstraints} function (Figure \ref{fig:logicsolver-allConstraints
 \end{enumerate}
 Finally, it calls \texttt{solver.solve()}, executing MiniSat internally, and returns the \texttt{Logic.Solution} object. 
 
-Executing this entire program yields an astonishing performance improvement.  While the Davis-Putnam
-alternating spent 21 minutes laboring through the SAT derivation, \texttt{11-Logic-Solver-Sudoku.ipynb}
-accomplishes the same goal in roughly 60 milliseconds. 
-
+Executing this entire program yields a huge performance improvement.  While the Davis-Putnam
+alternating spent 21 minutes laboring through the SAT derivation, the Jupyter notebook that uses \texttt{Logic-Solver}
+accomplishes the same goal in roughly 60 milliseconds.  
 The Jupyter notebook showing the resulting program is available at:
 \\[0.2cm]
 \hspace*{1.3cm}
