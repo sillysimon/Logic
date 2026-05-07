@@ -1,4 +1,32 @@
-export type ASTNode = string | any[];
+// FOLParser.ts
+
+// ----------------------------------------------------------------------------
+// Type Definitions
+// ----------------------------------------------------------------------------
+
+export type ConstantOp = '⊤' | '⊥';
+export type UnaryOp = '¬';
+export type QuantifierOp = '∀' | '∃';
+export type BinaryOp = '↔' | '→' | '∨' | '∧' | '=' | '<' | '>' | '≤' | '≥' | '+' | '-' | '*' | '/' | '%' | '**';
+
+export type TerminalNode = string;
+export type ConstantNode = [ConstantOp];
+export type UnaryNode = [UnaryOp, ASTNode];
+export type QuantifierNode = [QuantifierOp, string, ASTNode];
+export type BinaryNode = [BinaryOp, ASTNode, ASTNode];
+export type FunctionOrPredicateNode = [string, ...ASTNode[]];
+
+export type ASTNode =
+    | TerminalNode
+    | ConstantNode
+    | UnaryNode
+    | QuantifierNode
+    | BinaryNode
+    | FunctionOrPredicateNode;
+
+// ----------------------------------------------------------------------------
+// Internal Helpers (Not exported)
+// ----------------------------------------------------------------------------
 
 function popOrThrow<T>(stack: T[], errorMsg: string): T {
     const val = stack.pop();
@@ -9,7 +37,6 @@ function popOrThrow<T>(stack: T[], errorMsg: string): T {
 }
 
 function tokenize(s: string): string[] {
-    // Tokens: **, variables (A-Z), symbols (a-z), numbers, or single-char operators
     const lexSpec = /\s*(?:(\*\*)|([A-Z][a-zA-Z0-9_]*)|([a-z][a-zA-Z0-9_]*)|(\d+(?:\.\d+)?)|([⊤⊥∧∨¬→↔()∀∃:,<>=≤≥+\-*/%]))\s*/g;
     return Array.from(s.matchAll(lexSpec))
         .map(m => m[1] || m[2] || m[3] || m[4] || m[5])
@@ -22,8 +49,6 @@ const isNum    = (s: string) => /^\d+(\.\d+)?$/.test(s);
 const isPrefix = (op: string) => op === '¬' || op.startsWith('∀|') || op.startsWith('∃|');
 
 function getPrec(op: string): number {
-    // Prefix operators (quantifiers and NOT) bind tighter than logical connectives 
-    // but weaker than relational operators like '='
     if (isPrefix(op)) return 4.5; 
     
     const precedences: Record<string, number> = {
@@ -40,6 +65,10 @@ function getPrec(op: string): number {
 }
 
 const MARKER = "((MARKER))";
+
+// ----------------------------------------------------------------------------
+// Main Parser Class
+// ----------------------------------------------------------------------------
 
 export class LogicParser {
     private _tokens:    string[];
@@ -58,7 +87,7 @@ export class LogicParser {
         while (this._tokens.length !== 0) {
             const next_op = popOrThrow(this._tokens, "Unexpected end of input");
 
-            // 1. Variables and Numbers go straight to the output (argument stack)
+            // 1. Variables and Numbers
             if (isVar(next_op) || isNum(next_op)) {
                 this._arguments.push(next_op);
                 continue;
@@ -66,7 +95,7 @@ export class LogicParser {
 
             // 2. Constants
             if (next_op === '⊤' || next_op === '⊥') {
-                this._arguments.push([next_op]);
+                this._arguments.push([next_op as ConstantOp]);
                 continue;
             }
 
@@ -112,10 +141,10 @@ export class LogicParser {
                 if (this._operators.length > 0 && isSym(this._operators[this._operators.length - 1])) {
                     // Form the function/predicate AST node
                     const funcSym = this._operators.pop()!;
-                    const args: any[] = [];
+                    const args: ASTNode[] = [];
                     while (true) {
                         if (this._arguments.length === 0) throw new Error("Missing MARKER");
-                        const arg = this._arguments.pop();
+                        const arg = this._arguments.pop()!;
                         if (arg === MARKER) break;
                         args.push(arg);
                     }
@@ -167,24 +196,26 @@ export class LogicParser {
 
         if (prec_stack > prec_next) return true;
         if (prec_stack === prec_next) {
-            if (next_op === '**' || next_op === '→') return false; // Right-associative
+            if (next_op === '**' || next_op === '→') return false;
             if (stack_op === '↔' && next_op === '↔') throw new Error("↔ is not associative");
-            if (isPrefix(stack_op) && isPrefix(next_op)) return false; // Prefix ops associate rightward
-            return true; // Left-associative for the rest
+            if (isPrefix(stack_op) && isPrefix(next_op)) return false;
+            return true;
         }
         return false;
     }
 
     private _pop_and_evaluate(): void {
         const op = popOrThrow(this._operators, "Unexpected end of input");
+        
         if (op === '¬') {
             const arg = popOrThrow(this._arguments, "Missing argument for ¬");
             this._arguments.push(['¬', arg]);
             return;
         }
+        
         if (op.startsWith('∀|') || op.startsWith('∃|')) {
             const arg = popOrThrow(this._arguments, `Missing argument for ${op}`);
-            this._arguments.push([op[0], op.slice(2), arg]);
+            this._arguments.push([op[0] as QuantifierOp, op.slice(2), arg]);
             return;
         }
         
@@ -192,12 +223,10 @@ export class LogicParser {
         if (binaryOps.includes(op)) {
             const rhs = popOrThrow(this._arguments, `Missing right argument for ${op}`);
             const lhs = popOrThrow(this._arguments, `Missing left argument for ${op}`);
-            this._arguments.push([op, lhs, rhs]);
+            this._arguments.push([op as BinaryOp, lhs, rhs]);
             return;
         }
+        
         throw new Error(`Unknown operator to evaluate: ${op}`);
     }
 }
-
-
-
