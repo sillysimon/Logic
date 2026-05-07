@@ -1,388 +1,203 @@
+export type ASTNode = string | any[];
+
+function popOrThrow<T>(stack: T[], errorMsg: string): T {
+    const val = stack.pop();
+    if (val === undefined) {
+        throw new Error(errorMsg);
+    }
+    return val;
+}
+
 function tokenize(s: string): string[] {
-    const regex = /\s*([:()¬∧∨→↔⊤⊥∀∃,]|[a-zA-Z][a-zA-Z0-9_]*)\s*/g;
-    return Array.from(s.matchAll(regex), match => match[1]);
+    // Tokens: **, variables (A-Z), symbols (a-z), numbers, or single-char operators
+    const lexSpec = /\s*(?:(\*\*)|([A-Z][a-zA-Z0-9_]*)|([a-z][a-zA-Z0-9_]*)|(\d+(?:\.\d+)?)|([⊤⊥∧∨¬→↔()∀∃:,<>=≤≥+\-*/%]))\s*/g;
+    return Array.from(s.matchAll(lexSpec))
+        .map(m => m[1] || m[2] || m[3] || m[4] || m[5])
+        .filter((t): t is string => !!t);
 }
 
-import { Structural } from 'recursive-set';
+const isVar    = (s: string) => /^[A-Z][a-zA-Z0-9_]*$/.test(s);
+const isSym    = (s: string) => /^[a-z][a-zA-Z0-9_]*$/.test(s);
+const isNum    = (s: string) => /^\d+(\.\d+)?$/.test(s);
+const isPrefix = (op: string) => op === '¬' || op.startsWith('∀|') || op.startsWith('∃|');
 
-type ValueOrStr = Structural | string;
-
-function hashStr(s: string): number {
-    let h = 0;
-    for (let i = 0; i < s.length; i++) {
-        h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-    }
-    return h;
+function getPrec(op: string): number {
+    // Prefix operators (quantifiers and NOT) bind tighter than logical connectives 
+    // but weaker than relational operators like '='
+    if (isPrefix(op)) return 4.5; 
+    
+    const precedences: Record<string, number> = {
+        '↔': 1,
+        '→': 2,
+        '∨': 3,
+        '∧': 4,
+        '=': 5, '<': 5, '>': 5, '≤': 5, '≥': 5,
+        '+': 6, '-': 6,
+        '*': 7, '/': 7, '%': 7,
+        '**': 8
+    };
+    return precedences[op] || 0;
 }
 
-function hashVal(v: ValueOrStr): number {
-    return typeof v == 'string' ? hashStr(v) : v.hashCode;
-}
-
-function hashArr(arr: ValueOrStr[]): number {
-    let h = 17;
-    for (const item of arr) {
-        h = (Math.imul(31, h) + hashVal(item)) | 0;
-    }
-    return h;
-}
-
-function valsEqual(a: ValueOrStr, b: ValueOrStr): boolean {
-    if (typeof a == 'string' || typeof b == 'string') {
-        return a === b;
-    }
-    return a.equals(b);
-}
-
-function arrEquals(a: ValueOrStr[], b: ValueOrStr[]): boolean {
-    if (a.length != b.length) {
-        return false;
-    }
-    for (let i = 0; i < a.length; i++) {
-        if (!valsEqual(a[i], b[i])) return false;
-    }
-    return true;
-}
-
-export type Variable = string;
-export type Term     = Variable | FuncTerm;
-
-export class FuncTerm implements Structural {
-    constructor(
-        public readonly symbol: string, 
-        public readonly args:   Term[]
-    ) {}
-
-    get hashCode(): number { 
-        return hashArr([this.symbol, ...this.args]); 
-    }
-
-    equals(other: unknown): boolean {
-        return other instanceof FuncTerm        && 
-               this.symbol == other.symbol      && 
-               arrEquals(this.args, other.args);
-    }
-    
-    toString(): string { 
-        if (this.args.length > 0) {
-            return `${this.symbol}(${this.args.join(', ')})`
-        } 
-        return this.symbol; 
-    }
-}
-
-export type Formula = ConstForm | PredForm | NotForm | BinaryForm | QuantifierForm;
-
-export class ConstForm implements Structural {
-    constructor(
-        public readonly value: '⊤' | '⊥'
-    ) {}
-    
-    get hashCode(): number { 
-        return this.value == '⊤' ? 1 : 0; 
-    }
-    
-    equals(other: unknown): boolean { 
-        return other instanceof ConstForm && this.value == other.value; 
-    }
-    
-    toString(): string { 
-        return this.value; 
-    }
-}
-
-export class PredForm implements Structural {
-    constructor(
-        public readonly symbol: string, 
-        public readonly args:   Term[]
-    ) {}
-    
-    get hashCode(): number { 
-        return hashArr([this.symbol, ...this.args]); 
-    }
-    
-    equals(other: unknown): boolean {
-        return other instanceof PredForm        && 
-               this.symbol == other.symbol      && 
-               arrEquals(this.args, other.args);
-    }
-    
-    toString(): string { 
-        if (this.args.length > 0) {
-            return `${this.symbol}(${this.args.join(', ')})`
-        } 
-        return this.symbol; 
-    }
-}
-
-export class NotForm implements Structural {
-    constructor(
-        public readonly body: Formula
-    ) {}
-
-    get hashCode(): number { 
-        return hashArr(['¬', this.body]); 
-    }
-    
-    equals(other: unknown): boolean { 
-        return other instanceof NotForm && this.body.equals(other.body); 
-    }
-    
-    toString(): string { 
-        return `¬${this.body.toString()}`; 
-    }
-}
-
-export class BinaryForm implements Structural {
-    constructor(
-        public readonly op:   '∧' | '∨' | '→' | '↔', 
-        public readonly left: Formula, 
-        public readonly right: Formula
-    ) {}
-    
-    get hashCode(): number { 
-        return hashArr([this.op, this.left, this.right]); 
-    }
-    
-    equals(other: unknown): boolean {
-        return other instanceof BinaryForm    && 
-               this.op == other.op            && 
-               this.left.equals(other.left)   && 
-               this.right.equals(other.right);
-    }
-    
-    toString(): string { 
-        return `(${this.left.toString()} ${this.op} ${this.right.toString()})`; 
-    }
-}
-
-export class QuantifierForm implements Structural {
-    constructor(
-        public readonly op:       '∀' | '∃', 
-        public readonly variable: string, 
-        public readonly body:     Formula
-    ) {}
-    
-    get hashCode(): number { 
-        return hashArr([this.op, this.variable, this.body]); 
-    }
-    
-    equals(other: unknown): boolean {
-        return other instanceof QuantifierForm && 
-               this.op       == other.op       && 
-               this.variable == other.variable && 
-               this.body.equals(other.body);
-    }
-    
-    toString(): string { 
-        return `${this.op}${this.variable}: ${this.body.toString()}`; 
-    }
-}
-
-const startsWithLowercase = (token: string): boolean => {
-    return /^[a-z]/.test(token);
-};
-
-const startsWithUppercase = (token: string): boolean => {
-    return /^[A-Z]/.test(token);
-};
+const MARKER = "((MARKER))";
 
 export class LogicParser {
-    private tokens: string[];
-    private pos:    number = 0;
+    private _tokens:    string[];
+    private _operators: string[];
+    private _arguments: ASTNode[];
+    private _input:     string;
 
-    constructor(input: string) {
-        this.tokens = tokenize(input);
+    constructor(s: string) {
+        this._tokens = tokenize(s).reverse();
+        this._operators = [];
+        this._arguments = [];
+        this._input = s;
     }
 
-    private current(): string | null {
-        return this.pos < this.tokens.length ? this.tokens[this.pos] : null;
-    }
+    parse(): ASTNode {
+        while (this._tokens.length !== 0) {
+            const next_op = popOrThrow(this._tokens, "Unexpected end of input");
 
-    private consume(expected?: string): string {
-        const token = this.current();
-        if (expected && token != expected) {
-            throw new Error(`expected: '${expected}', found: '${token}' at position ${this.pos}`);
-        }
-        this.pos++;
-        return token;
-    }
-
-    // --- Entry Points ---
-    public parseFormula(): Formula {
-        const f = this.parseEquivalence(); // Start at the lowest precedence
-        if (this.current() !== null) {
-            throw new Error(`unexpected token at end of string: ${this.current()}`);
-        }
-        return f;
-    }
-
-    // parse a term followed by end-of-sring
-    public parseTermEOS(): Term {
-        const t = this.parseTerm(); 
-        if (this.current() !== null) {
-            throw new Error(`unexpected token at end of string: ${this.current()}`);
-        }
-        return t;
-    }
-
-    // --- Recursive Descent ---
-
-    // LEVEL 0: Equivalence (↔)
-    // Precedence: Lowest
-    // Associativity: NONE (Throws error on A ↔ B ↔ C)
-    private parseEquivalence(): Formula {
-        const left = this.parseImplication();
-        if (this.current() == '↔') {
-            this.consume();
-            const right = this.parseImplication();
-            // check for illegal chaining of '↔'
-            if (this.current() == '↔') {
-                throw new Error("The operator '↔' is not associative. Use parentheses.");
+            // 1. Variables and Numbers go straight to the output (argument stack)
+            if (isVar(next_op) || isNum(next_op)) {
+                this._arguments.push(next_op);
+                continue;
             }
-            return new BinaryForm('↔', left, right);
-        }
-        return left;
-    }
-    
-    // LEVEL 1: Implication (→)
-    // Precedence: Higher than ↔, lower than ∨
-    // Associativity: RIGHT
-    private parseImplication(): Formula {
-        const left = this.parseOr();
-        if (this.current() == '→') {
-            this.consume();
-            // Right-associativity: recursively call parseImplication for the right side
-            const right = this.parseImplication(); 
-            return new BinaryForm('→', left, right);
-        }
-        return left;
-    }
 
-    // LEVEL 2: Disjunction (∨)
-    // Associativity: LEFT
-    private parseOr(): Formula {
-        let left = this.parseAnd();
-        while (this.current() == '∨') {
-            this.consume();
-            const right = this.parseAnd();
-            left = new BinaryForm('∨', left, right);
-        }
-        return left;
-    }
-
-    // LEVEL 3: Conjunction (∧)
-    // Associativity: LEFT
-    private parseAnd(): Formula {
-        let left = this.parseNot();
-        while (this.current() == '∧') {
-            this.consume();
-            const right = this.parseNot();
-            left = new BinaryForm('∧', left, right);
-        }
-        return left;
-    }
-
-    // LEVEL 4: Negation (¬) & Quantifiers (∀, ∃)
-    private parseNot(): Formula {
-        const token = this.current(); 
-        if (token == '¬') {
-            this.consume();
-            return new NotForm(this.parseNot());
-        }
-        if (token == '∀' || token == '∃') {
-            const op = token;
-            this.consume();
-            const varName = this.current();
-            if (varName === null || !startsWithLowercase(varName)) {
-                throw new Error("A quantifier must be followed by a variable.");
+            // 2. Constants
+            if (next_op === '⊤' || next_op === '⊥') {
+                this._arguments.push([next_op]);
+                continue;
             }
-            this.consume();
-            this.consume(':');
-            const body = this.parseNot();
-            return new QuantifierForm(op, varName, body);
-        }
-        return this.parseAtom();
-    }
 
-    // LEVEL 5: Atoms
-    private parseAtom(): Formula {
-        const token = this.current();
-        if (token == '(') {
-            this.consume();
-            // Parentheses reset the parsing to the lowest precedence level
-            const f = this.parseEquivalence(); 
-            this.consume(')');
-            return f;
-        }
-        if (token == '⊤') { 
-            this.consume(); 
-            return new ConstForm('⊤'); 
-        }
-        if (token == '⊥') { 
-            this.consume(); 
-            return new ConstForm('⊥'); 
-        }
-        const name = token;
-        if (startsWithUppercase(name)) {
-            this.consume();
-            let args: Term[] = [];
-            if (this.current() == '(') {
-                this.consume();
-                if (this.current() != ')') {
-                    args = this.parseTermList();
+            // 3. Functions & Predicates
+            if (isSym(next_op)) {
+                const peek = this._tokens[this._tokens.length - 1];
+                if (peek === '(') {
+                    this._operators.push(next_op);
+                } else {
+                    this._arguments.push([next_op]); // 0-ary symbol
                 }
-                this.consume(')');
+                continue;
             }
-            return new PredForm(name, args);
-        }
-        throw new Error(`Unexpected token or predicate symbol: '${name}'`);
-    }
 
-    // --- Term Parsing ---
-    public parseTerm(): Term {
-        const name = this.current();
-        if (startsWithLowercase(name)) {
-            this.consume();
-            return name;  // It's a variable.
-        }
-        if (!startsWithUppercase(name)) {
-            throw new Error(`Invalid start of termStart: '${name}'`);
-        }
-        this.consume();
-        let args: Term[] = [];
-        if (this.current() == '(') {
-            this.consume();
-            if (this.current() != ')') {
-                args = this.parseTermList();
+            // 4. Quantifiers
+            if (next_op === '∀' || next_op === '∃') {
+                const q = next_op;
+                const v = popOrThrow(this._tokens, `Expected variable after ${q}`);
+                if (!isVar(v)) throw new Error(`Expected uppercase variable, got ${v}`);
+                const colon = popOrThrow(this._tokens, `Expected ':' after ${v}`);
+                if (colon !== ':') throw new Error(`Expected ':', got ${colon}`);
+                this._operators.push(`${q}|${v}`);
+                continue;
             }
-            this.consume(')');
-            return new FuncTerm(name, args);
+
+            // 5. Open Parenthesis
+            if (this._operators.length === 0 || next_op === '(') {
+                this._operators.push(next_op);
+                if (next_op === '(') {
+                    this._arguments.push(MARKER);
+                }
+                continue;
+            }
+
+            // 6. Close Parenthesis
+            if (next_op === ')') {
+                while (this._operators.length > 0 && this._operators[this._operators.length - 1] !== '(') {
+                    this._pop_and_evaluate();
+                }
+                if (this._operators.length === 0) throw new Error("Mismatched parentheses");
+                popOrThrow(this._operators, ""); // Pop '('
+
+                if (this._operators.length > 0 && isSym(this._operators[this._operators.length - 1])) {
+                    // Form the function/predicate AST node
+                    const funcSym = this._operators.pop()!;
+                    const args: any[] = [];
+                    while (true) {
+                        if (this._arguments.length === 0) throw new Error("Missing MARKER");
+                        const arg = this._arguments.pop();
+                        if (arg === MARKER) break;
+                        args.push(arg);
+                    }
+                    args.reverse();
+                    this._arguments.push([funcSym, ...args]);
+                } else {
+                    // Resolve grouping parentheses
+                    const result = popOrThrow(this._arguments, "Empty parentheses");
+                    if (result === MARKER) throw new Error("Empty parentheses are not allowed");
+                    const marker = popOrThrow(this._arguments, "Missing MARKER");
+                    if (marker !== MARKER) throw new Error("Expected MARKER");
+                    this._arguments.push(result);
+                }
+                continue;
+            }
+
+            // 7. Commas (Arguments separator)
+            if (next_op === ',') {
+                while (this._operators.length > 0 && this._operators[this._operators.length - 1] !== '(') {
+                    this._pop_and_evaluate();
+                }
+                continue;
+            }
+
+            // 8. Standard Operators
+            const stack_op = this._operators[this._operators.length - 1];
+            if (this._eval_before(stack_op, next_op)) {
+                this._pop_and_evaluate();
+                this._tokens.push(next_op); 
+            } else {
+                this._operators.push(next_op);
+            }
         }
-        return name; // It's a constant symbol.
+
+        while (this._operators.length !== 0) {
+            this._pop_and_evaluate();
+        }
+
+        if (this._arguments.length !== 1) {
+            throw new Error(`Could not parse ${this._input}`);
+        }
+        return popOrThrow(this._arguments, "Unexpected end of input");
     }
 
-    private parseTermList(): Term[] {
-        const args: Term[] = [];
-        args.push(this.parseTerm());
-        while (this.current() == ',') {
-            this.consume();
-            args.push(this.parseTerm());
+    private _eval_before(stack_op: string, next_op: string): boolean {
+        if (stack_op === '(') return false;
+        const prec_stack = getPrec(stack_op);
+        const prec_next  = getPrec(next_op);
+
+        if (prec_stack > prec_next) return true;
+        if (prec_stack === prec_next) {
+            if (next_op === '**' || next_op === '→') return false; // Right-associative
+            if (stack_op === '↔' && next_op === '↔') throw new Error("↔ is not associative");
+            if (isPrefix(stack_op) && isPrefix(next_op)) return false; // Prefix ops associate rightward
+            return true; // Left-associative for the rest
         }
-        return args;
+        return false;
+    }
+
+    private _pop_and_evaluate(): void {
+        const op = popOrThrow(this._operators, "Unexpected end of input");
+        if (op === '¬') {
+            const arg = popOrThrow(this._arguments, "Missing argument for ¬");
+            this._arguments.push(['¬', arg]);
+            return;
+        }
+        if (op.startsWith('∀|') || op.startsWith('∃|')) {
+            const arg = popOrThrow(this._arguments, `Missing argument for ${op}`);
+            this._arguments.push([op[0], op.slice(2), arg]);
+            return;
+        }
+        
+        const binaryOps = ['↔', '→', '∨', '∧', '=', '<', '>', '≤', '≥', '+', '-', '*', '/', '%', '**'];
+        if (binaryOps.includes(op)) {
+            const rhs = popOrThrow(this._arguments, `Missing right argument for ${op}`);
+            const lhs = popOrThrow(this._arguments, `Missing left argument for ${op}`);
+            this._arguments.push([op, lhs, rhs]);
+            return;
+        }
+        throw new Error(`Unknown operator to evaluate: ${op}`);
     }
 }
 
-// =========================================================
-// MAIN EXPORTS
-// =========================================================
 
-export function parse(input: string): Formula {
-	const parser = new LogicParser(input);
-	return parser.parseFormula();
-}
 
-export function parseTerm(input: string): Term {
-	const parser = new LogicParser(input);
-	return parser.parseTermEOS();
-}
