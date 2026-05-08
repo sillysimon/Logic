@@ -9,20 +9,22 @@ export type UnaryOp = '¬';
 export type QuantifierOp = '∀' | '∃';
 export type BinaryOp = '↔' | '→' | '∨' | '∧' | '=' | '<' | '>' | '≤' | '≥' | '+' | '-' | '*' | '/' | '%' | '**';
 
-export type TerminalNode = string;
-export type ConstantNode = [ConstantOp];
-export type UnaryNode = [UnaryOp, ASTNode];
-export type QuantifierNode = [QuantifierOp, string, ASTNode];
-export type BinaryNode = [BinaryOp, ASTNode, ASTNode];
-export type FunctionOrPredicateNode = [string, ...ASTNode[]];
+export type Variable        = string;
+export type FunctionSymbol  = string;
+export type PredicateSymbol = string;
+export type Constant        = [ConstantOp];
+export type Unary           = [UnaryOp, AST];
+export type Quantifier      = [QuantifierOp, Variable, AST];
+export type Binary          = [BinaryOp, AST, AST];
+export type FctnOrPrd       = [FunctionSymbol | PredicateSymbol, ...AST[]];
 
-export type ASTNode =
-    | TerminalNode
-    | ConstantNode
-    | UnaryNode
-    | QuantifierNode
-    | BinaryNode
-    | FunctionOrPredicateNode;
+export type AST =
+    | Variable
+    | Constant
+    | Unary
+    | Quantifier
+    | Binary
+    | FctnOrPrd;
 
 // ----------------------------------------------------------------------------
 // Internal Helpers (Not exported)
@@ -73,7 +75,7 @@ const MARKER = "((MARKER))";
 export class LogicParser {
     private _tokens:    string[];
     private _operators: string[];
-    private _arguments: ASTNode[];
+    private _arguments: AST[];
     private _input:     string;
 
     constructor(s: string) {
@@ -83,7 +85,7 @@ export class LogicParser {
         this._input = s;
     }
 
-    parse(): ASTNode {
+    parse(): AST {
         while (this._tokens.length !== 0) {
             const next_op = popOrThrow(this._tokens, "Unexpected end of input");
 
@@ -141,7 +143,7 @@ export class LogicParser {
                 if (this._operators.length > 0 && isSym(this._operators[this._operators.length - 1])) {
                     // Form the function/predicate AST node
                     const funcSym = this._operators.pop()!;
-                    const args: ASTNode[] = [];
+                    const args: AST[] = [];
                     while (true) {
                         if (this._arguments.length === 0) throw new Error("Missing MARKER");
                         const arg = this._arguments.pop()!;
