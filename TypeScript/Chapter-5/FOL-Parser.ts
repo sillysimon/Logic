@@ -1,34 +1,22 @@
-// FOLParser.ts
-
-// ----------------------------------------------------------------------------
-// Type Definitions
-// ----------------------------------------------------------------------------
-
-export type ConstantOp = '⊤' | '⊥';
-export type UnaryOp = '¬';
-export type QuantifierOp = '∀' | '∃';
-export type BinaryOp = '↔' | '→' | '∨' | '∧' | '=' | '<' | '>' | '≤' | '≥' | '+' | '-' | '*' | '/' | '%' | '**';
+/**
+ * First-Order Logic Parser Library
+ */
 
 export type Variable        = string;
 export type FunctionSymbol  = string;
 export type PredicateSymbol = string;
-export type Constant        = [ConstantOp];
-export type Unary           = [UnaryOp, AST];
-export type Quantifier      = [QuantifierOp, Variable, AST];
-export type Binary          = [BinaryOp, AST, AST];
-export type FctnOrPrd       = [FunctionSymbol | PredicateSymbol, ...AST[]];
 
-export type AST =
-    | Variable
-    | Constant
-    | Unary
-    | Quantifier
-    | Binary
-    | FctnOrPrd;
+export type Term = Variable 
+                 | [FunctionSymbol, ...Term[]];
 
-// ----------------------------------------------------------------------------
-// Internal Helpers (Not exported)
-// ----------------------------------------------------------------------------
+export type Formula = [PredicateSymbol, ...Term[]]
+                    | ['⊤' | '⊥']
+                    | ['¬', Formula]
+                    | ['↔' | '→' | '∨' | '∧', Formula, Formula ]
+                    | ['∀' | '∃', Variable, Formula];
+
+// Internal generic AST to hold partial parses during Shunting Yard
+type RawAST = string | [string, ...RawAST[]];
 
 function popOrThrow<T>(stack: T[], errorMsg: string): T {
     const val = stack.pop();
@@ -36,6 +24,42 @@ function popOrThrow<T>(stack: T[], errorMsg: string): T {
         throw new Error(errorMsg);
     }
     return val;
+}
+
+const LOGICAL_OPS = new Set(['⊤', '⊥', '¬', '↔', '→', '∨', '∧', '∀', '∃']);
+
+export function isTerm(ast: RawAST): ast is Term {
+    if (typeof ast === 'string') return true;
+    for (let i = 1; i < ast.length; i++) {
+        if (!isTerm(ast[i])) return false;
+    }
+    return true;
+}
+
+export function isFormula(ast: RawAST): ast is Formula {
+    if (typeof ast === 'string') return false;
+    if (ast.length === 0) return false;
+
+    const op = ast[0];
+
+    if (op === '⊤' || op === '⊥') return ast.length === 1;
+    if (op === '¬') return ast.length === 2 && isFormula(ast[1]);
+    if (op === '↔' || op === '→' || op === '∨' || op === '∧') {
+        return ast.length === 3 && isFormula(ast[1]) && isFormula(ast[2]);
+    }
+    if (op === '∀' || op === '∃') {
+        return ast.length === 3 && typeof ast[1] === 'string' && isFormula(ast[2]);
+    }
+
+    // Otherwise, must be a Predicate applied to Terms
+    if (typeof op === 'string' && !LOGICAL_OPS.has(op)) {
+        for (let i = 1; i < ast.length; i++) {
+            if (!isTerm(ast[i])) return false;
+        }
+        return true;
+    }
+
+    return false;
 }
 
 function tokenize(s: string): string[] {
@@ -68,14 +92,10 @@ function getPrec(op: string): number {
 
 const MARKER = "((MARKER))";
 
-// ----------------------------------------------------------------------------
-// Main Parser Class
-// ----------------------------------------------------------------------------
-
 export class LogicParser {
     private _tokens:    string[];
     private _operators: string[];
-    private _arguments: AST[];
+    private _arguments: RawAST[];
     private _input:     string;
 
     constructor(s: string) {
@@ -85,7 +105,7 @@ export class LogicParser {
         this._input = s;
     }
 
-    parse(): AST {
+    parse(): RawAST {
         while (this._tokens.length !== 0) {
             const next_op = popOrThrow(this._tokens, "Unexpected end of input");
 
@@ -97,7 +117,7 @@ export class LogicParser {
 
             // 2. Constants
             if (next_op === '⊤' || next_op === '⊥') {
-                this._arguments.push([next_op as ConstantOp]);
+                this._arguments.push([next_op]);
                 continue;
             }
 
@@ -143,7 +163,7 @@ export class LogicParser {
                 if (this._operators.length > 0 && isSym(this._operators[this._operators.length - 1])) {
                     // Form the function/predicate AST node
                     const funcSym = this._operators.pop()!;
-                    const args: AST[] = [];
+                    const args: RawAST[] = [];
                     while (true) {
                         if (this._arguments.length === 0) throw new Error("Missing MARKER");
                         const arg = this._arguments.pop()!;
@@ -208,16 +228,14 @@ export class LogicParser {
 
     private _pop_and_evaluate(): void {
         const op = popOrThrow(this._operators, "Unexpected end of input");
-        
         if (op === '¬') {
             const arg = popOrThrow(this._arguments, "Missing argument for ¬");
             this._arguments.push(['¬', arg]);
             return;
         }
-        
         if (op.startsWith('∀|') || op.startsWith('∃|')) {
             const arg = popOrThrow(this._arguments, `Missing argument for ${op}`);
-            this._arguments.push([op[0] as QuantifierOp, op.slice(2), arg]);
+            this._arguments.push([op[0], op.slice(2), arg]);
             return;
         }
         
@@ -225,10 +243,22 @@ export class LogicParser {
         if (binaryOps.includes(op)) {
             const rhs = popOrThrow(this._arguments, `Missing right argument for ${op}`);
             const lhs = popOrThrow(this._arguments, `Missing left argument for ${op}`);
-            this._arguments.push([op as BinaryOp, lhs, rhs]);
+            this._arguments.push([op, lhs, rhs]);
             return;
         }
-        
         throw new Error(`Unknown operator to evaluate: ${op}`);
     }
+}
+
+/**
+ * Type-checking wrapper to guarantee Formula output.
+ * Throws an error if the parsed string is not a valid Formula.
+ */
+export function parseFormula(s: string): Formula {
+    const parser = new LogicParser(s);
+    const ast = parser.parse();
+    if (isFormula(ast)) {
+        return ast;
+    }
+    throw new Error(`Parsed AST is not a valid Formula: ${JSON.stringify(ast)}`);
 }
