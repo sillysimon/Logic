@@ -1,11 +1,13 @@
 // --- Typ-Definitionen ---
 
 /**
- * Represents a CSP (Constraint Satisfaction Problem).
+ * Represents a CSP (Constraint Satisfaction Problem) with typed variables and values.
+ * @template V - Union type of all variable names (e.g. 'WA' | 'NT')
+ * @template D - Union type of all values (e.g. 'red' | 'green')
  */
-export interface CSP {
-  readonly variables:   readonly string[];
-  readonly values:      readonly string[]; 
+export interface CSP<V extends string, D extends string | number> {
+  readonly variables: readonly V[];
+  readonly values: readonly D[]; 
   readonly constraints: readonly string[];
 }
 
@@ -13,30 +15,26 @@ export interface CSP {
  * Partial assignment mapping variables to domain values.
  * Uses Partial because during search, not all variables are assigned.
  */
-export interface Assignment {
-    [variableName: string]: string;
-}
+export type Assignment<V extends string, D extends string | number> = Partial<Record<V, D>>;
 
 /**
  * A complete solution where every variable has a value.
  */
-export interface Solution {
-    [variableName: string]: string;
-}
+export type Solution<V extends string, D extends string | number> = Record<V, D>;
 
 /**
  * Callback invoked during search to visualize intermediate assignments.
  */
-export type VisualizationCallback = (
-  assignment: Assignment
+export type VisualizationCallback<V extends string, D extends string | number> = (
+  assignment: Assignment<V, D>
 ) => void;
 
 /**
  * Result of a successful solve operation.
  */
-export interface SolveResult {
+export interface SolveResult<V extends string, D extends string | number> {
   readonly steps: number;
-  readonly solution: Solution;
+  readonly solution: Solution<V, D>;
 }
 
 /**
@@ -53,10 +51,10 @@ interface AnnotatedConstraint {
  * TYPE GUARD: Prüft zur Laufzeit, ob alle Variablen gesetzt sind.
  * Wenn true, verengt TypeScript den Typ von 'Assignment' auf 'Solution'.
  */
-function isComplete(
-  assignment: Assignment,
-  variables: readonly string[]
-): assignment is Solution {
+function isComplete<V extends string, D extends string | number>(
+  assignment: Assignment<V, D>,
+  variables: readonly V[]
+): assignment is Solution<V, D> {
   if (Object.keys(assignment).length !== variables.length) {
     return false;
   }
@@ -93,9 +91,9 @@ function isSubset<T>(subset: ReadonlySet<T>, superset: Set<T>): boolean {
   return true;
 }
 
-function evaluateExpression(
+function evaluateExpression<V extends string, D extends string | number>(
   expr: string,
-  context: Assignment
+  context: Assignment<V, D>
 ): boolean {
   const jsExpr = expr
     .replace(/\band\b/g, '&&')
@@ -115,13 +113,13 @@ function evaluateExpression(
   }
 }
 
-function isConsistent(
-  variable: string,
-  value: string,
-  assignment: Assignment,
+function isConsistent<V extends string, D extends string | number>(
+  variable: V,
+  value: D,
+  assignment: Assignment<V, D>,
   constraints: readonly AnnotatedConstraint[]
 ): boolean {
-  const newAssignment: Assignment = { ...assignment, [variable]: value };
+  const newAssignment: Assignment<V, D> = { ...assignment, [variable]: value };
   const assignedVars = new Set(Object.keys(newAssignment));
   
   for (const { formula, vars } of constraints) {
@@ -135,27 +133,23 @@ function isConsistent(
   return true;
 }
 
-function extendAssignment(asgnmnt: Assignment, variable: string, val: string): Assignment {
-    return Object.assign({}, asgnmnt, { [variable]: val });
-}
-
 // --- Backtrack Search ---
 
-function backtrackSearch(
-  assignment: Assignment,
-  variables: readonly string[],
-  values: readonly string[],
+function backtrackSearch<V extends string, D extends string | number>(
+  assignment: Assignment<V, D>,
+  variables: readonly V[],
+  values: readonly D[],
   constraints: readonly AnnotatedConstraint[],
   state: { steps: number },
-  onUpdate: VisualizationCallback | undefined
-): Solution | null {
+  onUpdate: VisualizationCallback<V, D> | undefined
+): Solution<V, D> | null {
   
   if (onUpdate !== undefined) {
     onUpdate(assignment);   
   }
   
   if (isComplete(assignment, variables)) {
-    return assignment; // TypeScript weiß jetzt sicher: Es ist 'Solution'
+    return assignment; // TypeScript weiß jetzt sicher: Es ist 'Solution<V, D>'
   }
   
   const unassignedVar = variables.find(v => !(v in assignment));
@@ -167,8 +161,12 @@ function backtrackSearch(
   for (const value of values) {
     state.steps++;
     
-      if (isConsistent(unassignedVar, value, assignment, constraints)) {       
-          const newAssignment = extendAssignment(assignment, unassignedVar, value);
+    if (isConsistent(unassignedVar, value, assignment, constraints)) {
+      const newAssignment: Assignment<V, D> = { 
+        ...assignment, 
+        [unassignedVar]: value 
+      };
+      
       const result = backtrackSearch(
         newAssignment,
         variables,
@@ -177,21 +175,22 @@ function backtrackSearch(
         state,
         onUpdate
       );
-          
-          if (result != null) {
-              return result;
-          }
+      
+      if (result !== null) {
+        return result;
       }
-  }  
+    }
+  }
+  
   return null;
 }
 
 // --- Exportierte Solve Funktion ---
 
-export function solve(
-  csp: CSP,
-  onUpdate?: VisualizationCallback
-): SolveResult | null {
+export function solve<V extends string, D extends string | number>(
+  csp: CSP<V, D>,
+  onUpdate?: VisualizationCallback<V, D>
+): SolveResult<V, D> | null {
   const { variables, values, constraints } = csp;
   const state = { steps: 0 };
   
