@@ -1114,81 +1114,13 @@ assignment $x_k \mapsto v_k$ and try to find a new value $v_k$ such that, first,
 the variables  $x_1$, $\cdots$, $x_k$ are satisfied, and, second, it is possible to find a value $v_{k+1}$ that
 can be assigned to $x_{k+1}$.  This step of going back and trying to find a new value for the variable $x_k$ is
 called \blue{backtracking}.  It might be necessary to backtrack more than one level and to also undo the
-assignment of $v_{k-1}$ to $x_{k-1}$ or, indeed, we might be forced to undo the assignments of all variables
-$x_i$, $\cdots$, $x_k$ for some $i \in \{1,\cdots, n\}$.  The details of this search procedure are best
-explained by looking at its implementation. \myFig{CSP-Solver.ipynb} shows a simple \textsc{Csp} solver that
-employs backtracking.  We discuss this program next.
+assignment of the value $v_{k-1}$ to the variable $x_{k-1}$ or, indeed, we might be forced to undo the
+assignments of all variables $x_i$, $\cdots$, $x_k$ for some $i \in \{1,\cdots, n\}$.  The details of this
+search procedure are best explained by looking at its implementation.  The \blue{backtracking constraint solver}
+is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver.ipynb-1} and Figure
+\ref{fig:CSP-Solver.ipynb-2} on page \pageref{fig:CSP-Solver.ipynb-2}.  We discuss this program line by line.
 
 \begin{figure}[!ht]
-\centering
-\begin{minted}[ frame         = lines, 
-                  framesep      = 0.3cm, 
-                  firstnumber   = 1,
-                  bgcolor       = sepia,
-                  numbers       = left,
-                  numbersep     = 0.3cm,
-                  xleftmargin   = 0.8cm,
-                  xrightmargin  = 0.8cm,
-                  ]{python3}
-import ast
-              
-def collect_variables(expr): 
-    tree = ast.parse(expr)
-    return { node.id for node in ast.walk(tree) 
-                     if  isinstance(node, ast.Name) 
-                     if  node.id not in dir(__builtins__)
-           }
-              
-def solve(CSP):
-    'Compute a solution for the given constraint satisfaction problem.'
-    Variables, Values, Constraints = CSP
-    CSP = (Variables,
-           Values,
-           [(f, collect_variables(f) & set(Variables)) for f in Constraints]
-          )
-    return backtrack_search({}, CSP)
-\end{minted}
-\vspace*{-0.3cm}
-\caption{A backtracking \textsc{Csp} solver}
-\label{fig:CSP-Solver.ipynb}
-\end{figure}
-
-\begin{enumerate}
-\item As we need to determine the variables occurring in a given constraint, we import the module
-      \mytt{ast}.  This module implements the function $\mytt{parse}(e)$ that takes
-      a \textsl{TypeScript} expression $e$.  This expression is parsed and the resulting syntax tree is returned.
-\item The function $\mytt{collect\_variables}(\mytt{expr})$ takes a \textsl{TypeScript} expression as its input.
-      It returns the set of variable names occurring in this expression.
-
-      The details of this implementation are quite technical and are not important in the following.
-\item The procedure $\mytt{solve}$ takes a constraint satisfaction problem $\mytt{CSP}$ as input and tries
-      to find a solution.    
-      \begin{enumerate}
-      \item First, in line 11 the $\mytt{CSP}$ is split into its three components.  However, the first
-            component $\mytt{Variables}$ does not have to be a set but rather can also be a list.
-            If $\mytt{Variables}$ is a list, then backtracking search will assign these variables 
-            in the same order as they appear in this list.  This can improve the efficiency of backtracking
-            tremendously. 
-      \item Next, for every constraint $\mytt{f}$ of the given $\mytt{CSP}$, we compute the set of variables that
-            are used in $\mytt{f}$.  This is done using the procedure $\mytt{collect\_variables}$.
-            Of these variables we keep only those variables that also occur in the set $\mytt{Variables}$
-            because we assume that any other \textsl{TypeScript} variable occurring in a constraint $f$ has already
-            a value assigned to it and can therefore be regarded as a constant.
-
-            The variables occurring in a constraint $\mytt{f}$ are then paired with the constraint $\mytt{f}$ and
-            the correspondingly modified data structure is stored in $\mytt{CSP}$ and is called an
-            \blue{augmented \textsc{Csp}}.
-
-            The reason to compute and store these sets of variables is efficiency: When we later check whether
-            a constraint $\mytt{f}$ is satisfied for a partial variable assignment $\mytt{Assignment}$ where $\mytt{Assignment}$ is
-            stored as a dictionary, we only need to check the constraint $\mytt{f}$ iff all of the variables occurring
-            in $\mytt{f}$ are elements of the domain of $\mytt{Assignment}$.   It would be wasteful to compute
-            these sets of all variables occurring in a given formula every time the formula is checked.
-      \item Next, we call the function $\mytt{backtrack\_search}$ to compute a solution of $\mytt{CSP}$.
-   \end{enumerate}
- \end{enumerate}
-
- \begin{figure}[!ht]
 \centering
 \begin{minted}[ frame         = lines, 
                   framesep      = 0.3cm, 
@@ -1198,122 +1130,242 @@ def solve(CSP):
                   numbersep     = 0.3cm,
                   xleftmargin   = 0.0cm,
                   xrightmargin  = 0.0cm,
-                ]{python3}          
-def backtrack_search(Assignment, CSP):
-    '''
-    Given a partial variable assignment, this function tries to 
-    complete this assignment towards a solution of the CSP.
-    '''
-    Variables, Values, Constraints = CSP
-    if len(Assignment) == len(Variables): 
-        return Assignment
-    var = [x for x in Variables if x not in Assignment][0]
-    for value in Values:
-        if isConsistent(var, value, Assignment, Constraints):
-            NewAssign      = Assignment.copy()
-            NewAssign[var] = value
-            Solution = backtrack_search(NewAssign, CSP)
-            if Solution != None:
-                return Solution
-    return None 
+                  ]{typescript}
+    type CSP                 = [string[], number[], string[]];          
+    type Assignment          = Map<string, number>;
+    type AnnotatedConstraint = [string, Set<string>];
+    
+    function collectVariables(formula: string): Set<string> {
+        /* not yet interesting, wait for formal languages */
+    }
+    
+    function evaluateExpression(
+        expr:   string, 
+        assign: Assignment, 
+        vars:   Set<string>
+    ): boolean {
+        const argNames:  string[] = [];
+        const argValues: number[] = [];
+        for (const v of vars) {
+            argNames .push(v);
+            argValues.push(assign.get(v));
+        }
+        const func = new Function(...argNames, `return (${expr});`);
+        return func(...argValues);
+    }
+    
+    function isConsistent(
+        variable:     string,
+        value:        number,
+        assignment:   Assignment,
+        assignedVars: Set<string>,
+        constraints:  AnnotatedConstraint[]
+    ): boolean {
+        const newAssignment = assignment.mutableCopy();
+        newAssignment.set(variable, value);
+        const newAssignedVars = assignedVars.clone();
+        newAssignedVars.add(variable);
+        return constraints.every(([formula, vars]) => {
+            const canEvaluate = vars.has(variable) && vars.isSubset(newAssignedVars);
+            return !canEvaluate || evaluateExpression(formula, newAssignment, vars);
+        });
+    }
 \end{minted}
 \vspace*{-0.3cm}
-\caption{The function \mytt{backtrack\_search}}
-\label{fig:CSP-Solver.ipynb-backtrack_search}
-\end{figure}
+\caption{A backtracking \textsc{Csp} solver, part 1.}
+\label{fig:CSP-Solver.ipynb-1}
+\end{figure} %$
 
-Next, we discuss the implementation of the procedure $\mytt{backtrack\_search}$ that is shown in
-\myFig{CSP-Solver.ipynb-backtrack_search}.  This procedure receives a partial assignment 
-$\mytt{Assignment}$ as input together with an augmented $\mytt{CSP}$.  This partial assignment is
-\blue{consistent} with $\mytt{CSP}$:  If $\mytt{f}$ is a constraint of $\mytt{CSP}$ such that
-all the variables occurring in $\mytt{f}$ are assigned to in $\mytt{Assignment}$, then evaluating
-$\mytt{f}$ using $\mytt{Assignment}$ yields $\mytt{true}$.  Initially, this partial assignment is empty
-and hence trivially consistent.  The idea is to extend this partial assignment until it is a complete
-assignment that satisfies all constraints of the given $\mytt{CSP}$.
 \begin{enumerate}
-\item First, the augmented $\mytt{CSP}$ is split into its components.
-\item Next, if $\mytt{Assignment}$ is already a complete variable assignment, i.e.~if the dictionary
-      $\mytt{Assignment}$ has as many elements as there are variables, then the fact that
-      $\mytt{Assignment}$ is partially consistent implies that
-      it is a solution of the $\mytt{CSP}$ and, therefore, it is returned.
-\item Otherwise, we have to extend the partial $\mytt{Assignment}$.  In order to do so, we first have to
-      select a variable $\mytt{var}$ that has not yet been assigned a value in $\mytt{Assignment}$ so far.
-      We pick the first variable in the list \mytt{Variables} that is yet unassigned.
-      This variable is called $\mytt{var}$.
-\item Next, we try to assign a $\mytt{value}$ to the selected variable $\mytt{var}$.  After assigning
-      a $\mytt{value}$ to $\mytt{var}$, we immediately check whether this assignment would be consistent
-      with the constraints using the procedure $\mytt{isConsistent}$.
-      If the partial $\mytt{Assignment}$ turns out to be consistent, the partial $\mytt{Assignment}$
-      is extended to the new partial assignment \mytt{NewAssign} that satisfies
-      \\[0.2cm]
-      \hspace*{1.3cm}
-      \mytt{NewAssign[var] = value}
-      \\[0.2cm]
-      and that coincides with $\mytt{Assignment}$ for all variables different from $\mytt{var}$.
-      Then, the procedure $\mytt{backtrack\_search}$ is called recursively to complete this new partial assignment.
-      If this is successful, the resulting assignment is a solution of the CSP and is returned.  Otherwise the
-      \texttt{for}-loop in line 10 tries the next $\mytt{value}$.
-      If all possible values have been tried and none was successful, the \texttt{for}-loop
-      ends and the function returns $\mytt{None}$.
-\end{enumerate}
+\item A \texttt{CSP} is a list of length 3.
+  \begin{enumerate}
+  \item The first element is a list of the variables. Variables are strings.
+  \item The second element is a list of the values.
+
+        We assume that all values are numbers.
+  \item The third element is a list of formulas.
+
+        These formulas are the constraints and they are represented as strings.
+  \end{enumerate}
+\item A \blue{variable assignment} is represented as a \texttt{Map} (remember that \texttt{Map} is really a
+      \texttt{RecursiveMap}).  This map maps the variables to the values, which are numbers.
+\item An annotated Constraint is a list of length 2.  The first element of this list is a formula, while the
+      second element is the set of variables that occur in this formula.
+\item The function \texttt{collectVariables} takes a formula, which is represented as a string.  It returns the
+      set of all variables that occur in this formula.
+
+      The details of the implementation of this function are not relevant.  Since the function uses
+      \blue{regular expressions} and we will discuss these only in the lesson on \blue{Formal Languages},
+      we are not yet able to discuss this implementation.
+\item The function \texttt{evaluateExpression} takes three arguments:
+  \begin{enumerate}[(a)]
+  \item \texttt{expr} is string.  This string is interpreted as TypeScript code that represents a Boolean
+        expression.  For example, \texttt{expr} could be the string \texttt{'x != y'}.
+  \item \texttt{assign} is a variable assignment.  The domain of this variable assignment is guaranteed to
+        contain all the variables that occur in \texttt{expr}.    
+  \item \texttt{vars} is the set of all variables that occur in \texttt{expr}.
+  \end{enumerate}
+  The task of the function \texttt{evaluateExpression} is to evaluate \texttt{expr} with the variable
+  assignment \texttt{assign}.
+
+  The implementation proceeds as follows:
+  \begin{enumerate}
+  \item It creates two lists \texttt{argNames} and \texttt{argValues}.  \texttt{argNames} is a list of the
+    variable names, while \texttt{argValues} contains the corresponding values that are given in the variable
+    assignment \texttt{assign}.
+  \item It dynamically creates a new function \texttt{func} that returns the given expression \texttt{expr}.
+  \item Finally, it calls this function with the corresponding argument and returns the value computed by the
+        dynamically created function.  This way, we can evaluate arbitrary expressions.
+      \end{enumerate}
+\item The function \texttt{isConsistent} takes five arguments:
+  \begin{enumerate}[(a)]
+  \item \texttt{variable} is a string. This represents the name of the variable we currently want to assign a value to.
+  \item \texttt{value} is a number. This represents the proposed value we want to assign to the \texttt{variable}.
+  \item \texttt{assignment} is a partial variable assignment that is represented as a \texttt{Map}. 
+  \item \texttt{assignedVars} is the set of all variables that have already been assigned a value.
+        Hence this set is the domain of the partial variable assignment \texttt{assign}.
+  \item \texttt{constraints} is a list of annotated constraints that our assignment must satisfy.
+  \end{enumerate}
+  The task of the function \texttt{isConsistent} is to determine whether assigning the given \texttt{value} to
+  the \texttt{variable} satisfies all the constraints that can be evaluated if we extend the partial assignment
+  \texttt{assign} so that \texttt{variable} is mapped to \texttt{value}.
+  
+  The implementation proceeds as follows:
+  \begin{enumerate}
+  \item It copies the given variable assignment to \texttt{newAssignment}, since the old variable assignment
+        must not be changed as we need it if we have to bachtrack.
+  \item It extends \texttt{newAssignment} so that \texttt{variable} is mapped to \texttt{value}.
+  \item It computes the domain of \texttt{newAssignment} by first creating a copy of the old
+        \texttt{assignment} and then adding \texttt{variable} to this set.
+  \item Next, it checks that \texttt{newAssignment} does not violate any of the constraints that can be
+        evaluated with \texttt{newAssignment}.
+
+        Given an annotated constraint \texttt{formula} that contains only variables from the set \texttt{vars}
+        it first determines if the constraint is ready to be evaluated. The variable \texttt{canEvaluate} is
+        \texttt{true} if and only if the current \texttt{variable} is part of the constraint, which is checked by
+        \texttt{vars.has(variable)} and, furthermore, all variables required by this constraint have already been assigned
+        values, which is checked by \texttt{vars.isSubset(newAssignedVars)}.
+
+        If the constraint cannot be evaluated yet, we do not need to bother with it.
+        Otherwise, the constraint is evaluated.
+
+        The function \texttt{isConsistent} only returns \texttt{true} if all constraints that can be evaluated are evaluated
+        as \texttt{true}.
+  \end{enumerate}
+\end{enumerate}      
 
 
 \begin{figure}[!ht]
 \centering
 \begin{minted}[ frame         = lines, 
-                framesep      = 0.3cm, 
-                firstnumber   = 1,
-                bgcolor       = sepia,
-                numbers       = left,
-                numbersep     = -0.2cm,
-                xleftmargin   = 0.0cm,
-                xrightmargin  = 0.0cm,
-              ]{python3}  
-    def isConsistent(var, value, Assignment, Constraints):
-        NewAssign      = Assignment.copy()
-        NewAssign[var] = value
-        return all(eval(f, NewAssign) for (f, Vs) in Constraints
-                                      if var in Vs and Vs <= NewAssign.keys()
-                  )
+                  framesep      = 0.3cm, 
+                  firstnumber   = last,
+                  bgcolor       = sepia,
+                  numbers       = left,
+                  numbersep     = 0.3cm,
+                  xleftmargin   = 0.8cm,
+                  xrightmargin  = 0.8cm,
+                ]{typescript}
+    function backtrackSearch(
+        assignment:   Assignment,
+        assignedVars: Set<string>,
+        variables:    string[],
+        values:       number[],
+        constraints:  AnnotatedConstraint[]
+    ): Assignment | null {   
+        if (assignment.size == variables.length) { return assignment; }
+        const nextVar = variables.find(v => !assignedVars.has(v));    
+        for (const value of values) {
+            if (isConsistent(nextVar, value, assignment, 
+                             assignedVars, constraints)) 
+            {       
+                const newAssignment = assignment.mutableCopy();
+                newAssignment.set(nextVar, value);    
+                const newAssignedVars = assignedVars.clone();
+                newAssignedVars.add(nextVar);
+                const result = 
+                      backtrackSearch(
+                          newAssignment, 
+                          newAssignedVars, 
+                          variables, 
+                          values, 
+                          constraints);
+                if (result != null) { return result; }
+            }
+        }
+        return null;
+    }
+    
+    function solve(csp: CSP): Assignment | null {
+        const [Vars, Values, Constrs] = csp;
+        const annotatedConstraints: AnnotatedConstraint[] = 
+              Constrs.map(f => [f, collectVariables(f)]);
+        const initialAssignment = new Map<string, number>();
+        const initialAssignedVars = set<string>(); // Empty RecursiveSet
+        return backtrackSearch(initialAssignment, initialAssignedVars, 
+                               Vars, Values, annotatedConstraints);
+    }
 \end{minted}
 \vspace*{-0.3cm}
-\caption{The procedure \mytt{isConsistent}}
-\label{fig:CSP-Solver.ipynb-isConsistent}
+\caption{A backtracking \textsc{Csp} solver, part 2.}
+\label{fig:CSP-Solver.ipynb-2}
 \end{figure}
 
-We still need to discuss the implementation of the auxiliary procedure $\mytt{isConsistent}$
-shown in \myFig{CSP-Solver.ipynb-isConsistent}.  This procedure takes a variable $\mytt{var}$, a $\mytt{value}$, a partial 
-$\mytt{Assignment}$ and a set of constraints \texttt{Constraints}.  It is assumed that $\mytt{Assignment}$ is
-\blue{partially consistent} with respect to the set $\mathtt{Constraints}$, i.e.~for every formula $\mytt{f}$
-occurring in $\mathtt{Constraints}$ such that
-\\[0.2cm]
-\hspace*{1.3cm}
-$\mytt{vars}(\mytt{f}) \subseteq \mytt{dom}(\mytt{Assignment})$
-\\[0.2cm]
-holds, the formula $\mytt{f}$ evaluates to $\mytt{true}$ given the $\mytt{Assignment}$.  The purpose of
-$\mytt{isConsistent}$ is to check, whether the extended assignment
-\\[0.2cm]
-\hspace*{1.3cm}
-$\mytt{NewAssign} \;\mytt{:=}\;\mytt{Assignment} \cup \{ \pair(\mytt{var}, \mytt{value}) \}$
-\\[0.2cm]
-that assigns $\mytt{value}$ to the variable $\mytt{var}$ is still partially consistent with $\mathcal{C}$. 
-To this end, the \mytt{for}-loop iterates over all $\mytt{Formula}$s in $\mathcal{C}$. 
-However, we only have to check those $\mytt{Formula}$s that contain the variable $\mytt{var}$ and,
-furthermore, have the property that
-\\[0.2cm]
-\hspace*{1.3cm}
-$\mathcal{V}(\mytt{Formula}) \subseteq \mytt{dom}(\mytt{NewAssign})$,
-\\[0.2cm]
-i.e.~all variables occurring in $\mytt{Formula}$ need to have a value assigned in
-$\mytt{NewAssign}$.  The reasoning is as follows:
 \begin{enumerate}
-\item If $\mytt{var}$ does not occur in $\mytt{Formula}$, then adding $\mytt{var}$ to
-      $\mytt{Assignment}$ cannot change the result of evaluating $\mytt{Formula}$: As
-      $\mytt{Assignment}$ is assumed to be partially consistent with respect to $\mytt{Formula}$, 
-      $\mytt{NewAssign}$ is also partially consistent with respect to $\mytt{Formula}$.
-\item If the formula $\mathtt{f}$ contains variables that have not been assigned yet, then \texttt{f} can not
-      be evaluated anyway.
+\item The function \texttt{backtrackSearch} that is shown in Figure \ref{fig:CSP-Solver.ipynb-2} on page
+  \pageref{fig:CSP-Solver.ipynb-2} is the core recursive algorithm that explores possible variable
+  assignments. It takes five arguments: 
+  \begin{enumerate}[(a)]
+  \item \texttt{assignment} is the current partial variable assignment.
+
+    This assignment is known to be \blue{consistent}: All constraints that only mention variable that
+    are part of the domain of \texttt{assignment} can be evaluated.
+  \item \texttt{assignedVars} is the set of variables that have already been assigned a value.
+  \item \texttt{variables} is the complete list of all variables of our \texttt{CSP}.
+  \item \texttt{values} is the list of all possible values that can be assigned to a variable.
+  \item \texttt{constraints} is the list of annotated constraints.
+  \end{enumerate}
+  The task of this function is to extend the current partial assignment to a complete, consistent assignment, or return \texttt{null} if no such assignment exists.
+
+  The implementation proceeds as follows:
+  \begin{enumerate}
+  \item It checks if the size of the current \texttt{assignment} equals the total length of the
+    \texttt{variables} array.  If they are equal, the assignment is complete.  Since it is also consistent, it
+    is a solution of our \textsc{Csp} and hence is returned.
+  \item It selects the next unassigned variable, \texttt{nextVar}, by finding the first variable in the
+    \texttt{variables} list that is not present in the \texttt{assignedVars} set. 
+  \item It loops through every possible \texttt{value} in the \texttt{values} array. For each value:
+    \begin{enumerate}[(i)]
+    \item It checks if assigning this \texttt{value} to \texttt{nextVar} is mathematically valid by calling the
+      \texttt{isConsistent} function. 
+    \item If it is consistent, it prepares for the next recursive step by creating safe, independent copies of
+      the current state. It creates \texttt{newAssignment} using \texttt{mutableCopy} and assigns
+      the new value. It also creates \texttt{newAssignedVars} using \texttt{clone()} and adds
+      \texttt{nextVar}. 
+    \item It recursively calls \texttt{backtrackSearch} with these newly updated collections.
+    \item If the recursive call is successful (i.e., \texttt{result != null}), it immediately propagates this
+      success upwards by returning the \texttt{result}. 
+    \end{enumerate}
+  \item \textbf{Backtracking:} If the loop finishes checking all values and none led to a successful complete
+    assignment, the current branch is a dead end. It returns \texttt{null}, triggering the algorithm to
+    \blue{backtrack} to previous variables. 
+  \end{enumerate}
+\item The function \texttt{solve} acts as the entry point to our solver. It takes a single argument, \texttt{csp}, which contains the complete definition of the problem.
+
+  The implementation proceeds as follows:
+  \begin{enumerate}
+  \item It uses destructuring assignment to unpack the \texttt{csp} list into three separate variables:
+    \texttt{Vars} (the variables), \texttt{Values} (the domain), and \texttt{Constrs} (the string formulas). 
+  \item It transforms the raw string formulas into a list of \texttt{AnnotatedConstraint}s. It does this by
+    mapping over \texttt{Constrs} and pairing each formula \texttt{f} with its associated variables, which are
+    computed using the \texttt{collectVariables} function. 
+  \item It initializes the starting state for the search: an empty \texttt{Map} for \texttt{initialAssignment}
+    and an empty \texttt{Set} for \texttt{initialAssignedVars}. 
+  \item Finally, it initiates the search by calling the \texttt{backtrackSearch} function with these initial
+    empty states along with the problem definitions, and returns the final result. 
+  \end{enumerate}
 \end{enumerate}
+
 If we use backtracking, we can solve the 8 queens puzzle in less than a second.
 For the 8 queens puzzle the order in which variables are tried is not particularly important.  The reason
 is that all variables are connected to all other variables.  For other problems the ordering of the variables
@@ -1326,7 +1378,7 @@ We have already discussed the \href{https://en.wikipedia.org/wiki/Zebra_puzzle}{
 programming problem.  You should start from the following notebook:
 \\[0.2cm]
 \hspace*{1.3cm}
-\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-4/Prince-Tiger.ipynb}{\texttt{github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Zebra-CSP.ipynb}}
+\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Zebra-Frame.ipynb}{\texttt{Chapter-5/Zebra-Frame.ipynb}}
 \\[0.2cm]
 While it is important to order the variables in a sensible way, you shouldn't spend to much time with this
 task.
@@ -1360,8 +1412,8 @@ digits at the beginning of a number should be different from $0$.
 Your task is to reformulate this puzzle as a constraint
 programming problem.  You should start from the following notebook:
 \\[0.2cm]
-\hspace*{0.3cm}
-\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Crypto-Arithmetic.ipynb}{\texttt{github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Crypto-Arithmetic.ipynb}}
+\hspace*{1.3cm}
+\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Crypto-Arithmetic-Frame.ipynb}{\texttt{Chapter-5/Crypto-Arithmetic-Frame.ipynb}}
 \\[0.2cm]
 It is importtant that you add the digits one by one as in elementary school.  This way, the addition is
 separated into a number of constraints that can then be solved by backtracking.  \eox
