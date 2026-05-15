@@ -1131,18 +1131,19 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
                   xleftmargin   = 0.0cm,
                   xrightmargin  = 0.0cm,
                   ]{typescript}
-    type CSP                 = [string[], number[], string[]];          
-    type Assignment          = Map<string, number>;
-    type AnnotatedConstraint = [string, Set<string>];
+    type Variable            = string;
+    type Formula             = string;
+    type CSP                 = [Variable[], number[], Formula[]];          
+    type Assignment          = Map<Variable, number>;
+    type AnnotatedConstraint = [Formula, Set<Variable>];
     
-    function collectVariables(formula: string): Set<string> {
-        /* not yet interesting, wait for formal languages */
+    function collectVariables(formula: Formula): Set<Variable> {
+        /* not yet interesting, wait for the lecture on formal languages */
     }
-    
     function evaluateExpression(
-        expr:   string, 
+        expr:   Formula, 
         assign: Assignment, 
-        vars:   Set<string>
+        vars:   Set<Variable>>
     ): boolean {
         const argNames:  string[] = [];
         const argValues: number[] = [];
@@ -1153,12 +1154,12 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
         const func = new Function(...argNames, `return (${expr});`);
         return func(...argValues);
     }
-    
+      
     function isConsistent(
-        variable:     string,
+        variable:     Variable,
         value:        number,
         assignment:   Assignment,
-        assignedVars: Set<string>,
+        assignedVars: Set<Variable>,
         constraints:  AnnotatedConstraint[]
     ): boolean {
         const newAssignment = assignment.mutableCopy();
@@ -1177,21 +1178,21 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
 \end{figure} %$
 
 \begin{enumerate}
+\item Variables and Formulas are strings.  
 \item A \texttt{CSP} is a list of length 3.
   \begin{enumerate}
-  \item The first element is a list of the variables. Variables are strings.
+  \item The first element is a list of the variables.  
   \item The second element is a list of the values.
 
         We assume that all values are numbers.
   \item The third element is a list of formulas.
-
-        These formulas are the constraints and they are represented as strings.
+        These formulas are the constraints.
   \end{enumerate}
 \item A \blue{variable assignment} is represented as a \texttt{Map} (remember that \texttt{Map} is really a
       \texttt{RecursiveMap}).  This map maps the variables to the values, which are numbers.
 \item An annotated Constraint is a list of length 2.  The first element of this list is a formula, while the
       second element is the set of variables that occur in this formula.
-\item The function \texttt{collectVariables} takes a formula, which is represented as a string.  It returns the
+\item The function \texttt{collectVariables} takes a formula.  It returns the
       set of all variables that occur in this formula.
 
       The details of the implementation of this function are not relevant.  Since the function uses
@@ -1199,7 +1200,7 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
       we are not yet able to discuss this implementation.
 \item The function \texttt{evaluateExpression} takes three arguments:
   \begin{enumerate}[(a)]
-  \item \texttt{expr} is string.  This string is interpreted as TypeScript code that represents a Boolean
+  \item \texttt{expr} is a formula.  This formula is interpreted as TypeScript code that represents a Boolean
         expression.  For example, \texttt{expr} could be the string \texttt{'x != y'}.
   \item \texttt{assign} is a variable assignment.  The domain of this variable assignment is guaranteed to
         contain all the variables that occur in \texttt{expr}.    
@@ -1219,7 +1220,7 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
       \end{enumerate}
 \item The function \texttt{isConsistent} takes five arguments:
   \begin{enumerate}[(a)]
-  \item \texttt{variable} is a string. This represents the name of the variable we currently want to assign a value to.
+  \item \texttt{variable} represents the name of the variable we currently want to assign a value to.
   \item \texttt{value} is a number. This represents the proposed value we want to assign to the \texttt{variable}.
   \item \texttt{assignment} is a partial variable assignment that is represented as a \texttt{Map}. 
   \item \texttt{assignedVars} is the set of all variables that have already been assigned a value.
@@ -1268,8 +1269,8 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
                 ]{typescript}
     function backtrackSearch(
         assignment:   Assignment,
-        assignedVars: Set<string>,
-        variables:    string[],
+        assignedVars: Set<Variable>>,
+        variables:    Variables[],
         values:       number[],
         constraints:  AnnotatedConstraint[]
     ): Assignment | null {   
@@ -1300,8 +1301,8 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
         const [Vars, Values, Constrs] = csp;
         const annotatedConstraints: AnnotatedConstraint[] = 
               Constrs.map(f => [f, collectVariables(f)]);
-        const initialAssignment = new Map<string, number>();
-        const initialAssignedVars = set<string>(); // Empty RecursiveSet
+        const initialAssignment = new Map<Variable, number>();
+        const initialAssignedVars = set<Variable>(); // Empty RecursiveSet
         return backtrackSearch(initialAssignment, initialAssignedVars, 
                                Vars, Values, annotatedConstraints);
     }
@@ -1460,7 +1461,7 @@ In order to solve this problem via constraint programming, we first introduce th
 
         The formula \texttt{Transition} describes how the variables in the transition system change during a
         state transition.  The primed variables refer to the values of the original variables after the
-        state transition.
+        state transition.  \eox
   \end{enumerate}
 \end{Definition}
 Every \blue{state} of a transition system is a mapping of the variable to values.
@@ -1468,8 +1469,16 @@ The idea is that the formula \texttt{Start} describes the start state of our sea
 describes the state that we want to reach, while \texttt{Invariant} is a formula that must be true initially
 and that has to remain true after every transition of our system.
 
+\remarkEng
+In the definition given above, we have not specified the signature $\Sigma$ that is used for the formula.
+In practice, this signature is given implicitly and consists of the function and predicate symbols provided by
+the programming language that is used.  Note that we can also define our own functions if the underlying
+problem demands it.
+\eox
 
-In order to clarify this definition we show how the \emph{missionaries and cannibals} problem can be formulated as
+\exampleEng
+In order to clarify the definition given above, we show how the \emph{missionaries and
+  cannibals} problem can be formulated as 
 a symbolic transition system.
 \begin{enumerate}[(a)]
 \item $\mathcal{V} := \{ \mathtt{M}, \mathtt{C}, \mathtt{B} \}$.
@@ -1536,9 +1545,11 @@ a symbolic transition system.
             \mathtt{M}' \geq \mathtt{M} \;\wedge\; \mathtt{C}' \geq \mathtt{C}$
 
             This formula describes the transition from the eastern shore to the western shore and is analogous
-            to the previous formula.
+            to the previous formula. \eox
       \end{itemize}
 \end{enumerate}
+
+
 
 
 \begin{figure}[!ht]

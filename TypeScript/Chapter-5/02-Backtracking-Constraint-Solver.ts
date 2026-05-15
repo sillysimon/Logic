@@ -21,18 +21,20 @@ function tpl<T extends Value[]>(...elements: T): Tuple<T> {
  * - Constraints is a list of formulas describing conditions that the variables must satisfy.
  * Formulas are given as strings and must be valid TypeScript expressions evaluating to a Boolean.
  */
-export type CSP = [string[], number[], string[]];
+export type Variable = string;
+export type Formula  = string;
+export type CSP = [Variable[], number[], Formula[]];
 
 /**
  * An `Assignment` maps some variables to values.
  */
-export type Assignment = Map<string, number>;
+export type Assignment = Map<Variable, number>;
 
 /**
  * An `AnnotatedConstraint` is a pair consisting of a formula and the set of all 
  * variables occurring in this formula.
  */
-type AnnotatedConstraint = [string, Set<string>];
+type AnnotatedConstraint = [Formula, Set<Variable>];
 
 // --- Internal Helper Functions ---
 
@@ -41,9 +43,9 @@ type AnnotatedConstraint = [string, Set<string>];
  * all variables occurring in it. It removes names that correspond to predefined 
  * values or functions (like Math, true, false).
  */
-function collectVariables(expr: string): Set<string> {
+function collectVariables(expr: Formula): Set<Variable> {
     const identifierRegex = /(?<!\.)\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
-    const variables: string[] = [];
+    const variables: Variable[] = [];
     const coreGlobals = new globalThis.Set(['Math', 'true', 'false']);
     let match: RegExpExecArray | null;
     
@@ -61,12 +63,12 @@ function collectVariables(expr: string): Set<string> {
  * dynamic function, and evaluates the given expression using the provided values.
  */
 function evaluateExpression(
-    expr: string, 
+    expr:   Formula, 
     assign: Assignment, 
-    vars: Set<string>
+    vars:   Set<Variable>
 ): boolean {
-    const argNames: string[] = [];
-    const argValues: number[] = [];
+    const argNames:  Variable[] = [];
+    const argValues: number  [] = [];
     
     for (const v of vars) {
         argNames.push(v);
@@ -89,10 +91,10 @@ function evaluateExpression(
  * formulas in `constraints`. Assumes the current Assignment is already consistent.
  */
 function isConsistent(
-    variable: string,
-    value: number,
-    assignment: Assignment,
-    assignedVars: Set<string>,
+    variable:     Variable,
+    value:        number,
+    assignment:   Assignment,
+    assignedVars: Set<Variable>,
     constraints: AnnotatedConstraint[]
 ): boolean {
     const newAssignment = assignment.mutableCopy();
@@ -112,9 +114,9 @@ function isConsistent(
  * recursively to produce a solution of the given CSP.
  */
 function backtrackSearch(
-    assignment: Assignment,
-    assignedVars: Set<string>,
-    variables: string[],
+    assignment:   Assignment,
+    assignedVars: Set<Variable>,
+    variables:    Variable[],
     values: number[],
     constraints: AnnotatedConstraint[]
 ): Assignment | null {   
