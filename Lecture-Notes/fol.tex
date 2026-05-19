@@ -1025,13 +1025,13 @@ variable assignments as dictionaries.  For example, the variable assignment $\ma
 then be represented in \textsl{TypeScript} as the \texttt{Map} 
 \\[0.2cm]
 \hspace*{1.3cm}
-$\mathcal{I} = \mathtt{new Map([ [Q1, 4],\, [Q2, 8],\, [Q3, 1],\, [Q4, 3],\, 
+$\mathcal{I} = \mathtt{map([ [Q1, 4],\, [Q2, 8],\, [Q3, 1],\, [Q4, 3],\, 
                                  [Q5, 6],\, [Q6, 2],\, [Q7, 7],\, [Q8, 5]])}$.
 \\[0.2cm]
 If we define 
 \\[0.2cm]
 \hspace*{1.3cm}
-$\mathcal{B} := \mathtt{new Map([ [Q1, 4],\, [Q2, 8],\, [Q3, 1]])}$.
+$\mathcal{B} := \mathtt{map([ [Q1, 4],\, [Q2, 8],\, [Q3, 1]])}$.
 \\[0.2cm]
 then $\mathcal{B}$ is a partial assignment and $\mytt{dom}(\mathcal{B}) = \{ \mytt{Q}_1, \mytt{Q}_2, \mytt{Q}_3 \}$.  This
 partial assignment is shown in \myFig{eight-queens-partial.txt}.
@@ -1053,7 +1053,7 @@ partial assignment is shown in \myFig{eight-queens-partial.txt}.
          \vrule width1pt}
    \hrule height1pt}
 
-  \caption{The partial assignment $\mathtt{new Map([ [Q1, 4],\, [Q2, 8],\, [Q3, 1]])}$.}
+  \caption{The partial assignment $\mathtt{map([ [Q1, 4],\, [Q2, 8],\, [Q3, 1]])}$.}
   \label{fig:eight-queens-partial.txt}
 \end{figure}
 
@@ -1301,7 +1301,7 @@ is shown in  Figure \ref{fig:CSP-Solver.ipynb-1} on page \pageref{fig:CSP-Solver
         const [Vars, Values, Constrs] = csp;
         const annotatedConstraints: AnnotatedConstraint[] = 
               Constrs.map(f => [f, collectVariables(f)]);
-        const initialAssignment = new Map<Variable, number>();
+        const initialAssignment = map<Variable, number>();
         const initialAssignedVars = set<Variable>(); // Empty RecursiveSet
         return backtrackSearch(initialAssignment, initialAssignedVars, 
                                Vars, Values, annotatedConstraints);
@@ -1549,54 +1549,6 @@ a symbolic transition system.
       \end{itemize}
 \end{enumerate}
 
-
-
-
-\begin{figure}[!ht]
-\centering
-\begin{Verbatim}[frame         = single, 
-                 framesep      = 0.3cm,
-                 framerule=0.5mm,
-                 rulecolor=\color{black},
-                 firstnumber   = 1,
-                 numbers       = left,
-                 numbersep     = 0.3cm,
-                 xleftmargin   = 0.8cm,
-                 xrightmargin  = 0.8cm,
-                 commandchars  = \\\{\},
-                 codes         = {\catcode`$=3\catcode`^=7}
-               ] 
-\colorbox{sepia}{def start(M, C, B):                                                       }
-\colorbox{sepia}{    return M == 3 and C == 3 and B == 1                                   }
-\colorbox{sepia}{                                                                          }
-\colorbox{sepia}{def goal(M, C, B):                                                        }
-\colorbox{sepia}{    return M == 0 and C == 0 and B == 0                                   }
-\colorbox{sepia}{                                                                          }
-\colorbox{sepia}{def invariant(M, C, B):                                                   }
-\colorbox{sepia}{    return (M == 0 or M == 3 or M == C) and B <= 1                        }
-\colorbox{sepia}{                                                                          }
-\colorbox{sepia}{def transition(M$\alpha$, C$\alpha$, B$\alpha$, M$\beta$, C$\beta$, B$\beta$):                                   }
-\colorbox{sepia}{    if not (B$\beta$ == 1 - B$\alpha$):                                                }
-\colorbox{sepia}{        return False                                                      }
-\colorbox{sepia}{    if B$\alpha$ == 1:                                                           }
-\colorbox{sepia}{        return 1 <= M$\alpha$ - M$\beta$ + C$\alpha$ - C$\beta$ <= 2 and M$\beta$ <= M$\alpha$ and C$\beta$ <= C$\alpha$     }
-\colorbox{sepia}{    else:                                                                 }
-\colorbox{sepia}{        return 1 <= M$\beta$ - M$\alpha$ + C$\beta$ - C$\alpha$ <= 2 and M$\beta$ >= M$\alpha$ and C$\beta$ >= C$\alpha$     }
-\end{Verbatim}
-\vspace*{-0.3cm}
-\caption{Coding the \emph{missionaries and cannibals problem} as a symbolic transition system.}
-\label{fig:Missionaries-STS.ipynb}
-\end{figure}
-
-%$
-Figure \ref{fig:Missionaries-STS.ipynb} shows how the \emph{missionaries and cannibals problem} can be
-represented as a symbolic transition system in \textsl{TypeScript}.  In the function \texttt{transition} 
-we use the following convention: Since variables cannot be primed in
-\textsl{TypeScript} we append the character $\alpha$ to the names of the original
-variables from the set $\mathcal{V}$, while we append $\beta$ to these names to get the primed versions of the
-corresponding variable.
-
-
 \begin{figure}[!ht]
 \centering
 \begin{minted}[ frame         = lines, 
@@ -1607,54 +1559,70 @@ corresponding variable.
                 numbersep     = -0.2cm,
                 xleftmargin   = 0.0cm,
                 xrightmargin  = 0.0cm,
-              ]{python3}
-    def flatten(LoL):
-        return [x for L in LoL for x in L]
-                    
-    def missionaries_CSP(n):
-        "Returns a CSP encoding the problem."
-        Lists        = [[f'M{i}', f'C{i}', f'B{i}'] for i in range(n+1)]
-        Variables    = flatten(Lists)
-        Values       = { 0, 1, 2, 3 }
-        Constraints  = {  'start(M0, C0, B0)'      }  # start state
-        Constraints |= { f'goal(M{n}, C{n}, B{n})' }  # goal state
-        for i in range(n):
-            Constraints.add(f'invariant(M{i}, C{i}, B{i})')
-            Constraints.add(f'transition(M{i}, C{i}, B{i}, M{i+1}, C{i+1}, B{i+1})')
-        return Variables, Values, Constraints
+              ]{typescript}
+    function invariant(M: Variable, C: Variable, B: Variable): Formula {
+        return `${M} == 0 || ${M} == 3 || ${M} == ${C}`;
+    }
+      
+    function transition(Ma: Variable, Ca: Variable, Ba: Variable, 
+                        Mb: Variable, Cb: Variable, Bb: Variable): Formula 
+    {
+        const westToEast = [`(1 <= (${Ma} - ${Mb}) + (${Ca} - ${Cb})`,
+                            `(${Ma} - ${Mb}) + (${Ca} - ${Cb}) <= 2`,
+                            `${Mb} <= ${Ma} && ${Cb} <= ${Ca})`];
+        const eastToWest = [`(1 <= (${Mb} - ${Ma}) + (${Cb} - ${Ca})`, 
+                            `(${Mb} - ${Ma}) + (${Cb} - ${Ca}) <= 2`, 
+                            `${Mb} >= ${Ma} && ${Cb} >= ${Ca})`];
         
-    def find_solution():
-        n = 1
-        while True:
-            print(n)
-            CSP = missionaries_CSP(n)
-            Solution = solve(CSP)
-            if Solution != None:
-                return n, Solution
-            n += 2
+        return `(${Bb} == 1 - ${Ba}) && ((${Ba} == 1) ? ${westToEast.join(' &&')} 
+                                                      : ${eastToWest.join(' &&')})`;
+    }             
+
+    function missionariesCSP(n: number): CSP {
+        const Vars    = range(0, n).flatMap(i => [`M${i}`, `C${i}`, `B${i}`]);
+        const Values  = range(0, n);
+        const Constrs =
+            ['M0 == 3 && C0 == 3 && B0 == 1',          // Start
+             `M${n} == 0 && C${n} == 0 && B${n} == 0`, // Goal
+             ...range(0, n-1).map(i => invariant( `M${i}`, `C${i}`, `B${i}`)),
+             ...range(0, n-1).map(i => transition(`M${i}`, `C${i}`, `B${i}`, 
+                                                  `M${i+1}`, `C${i+1}`, `B${i+1}`))];
+        return [Vars, Values, Constrs];
+    }
+
+    function findSolution(): [number, Assignment] {
+        let n = 1;
+        while (true) {
+            console.log(`Checking n = ${n}...`);
+            const csp = missionariesCSP(n);
+            const result = solve(csp);
+            if (result != null) { return [n, result]; }
+            n += 2;
+        }
+    }        
 \end{minted}
 \vspace*{-0.3cm}
 \caption{Turning the symbolic transition system into a \textsc{Csp}.}
-\label{fig:Missionaries-STS.ipynb-2}
-\end{figure}
+\label{fig:Missionaries-STS.ipynb}
+\end{figure} %$
 
-Figure \ref{fig:Missionaries-STS.ipynb-2} shows how we can turn the symbolic transition system into a
+Figure \ref{fig:Missionaries-STS.ipynb} shows how the \emph{missionaries and cannibals problem} can be
+represented as a symbolic transition system in \textsl{TypeScript}.
+
+
 \textsc{Csp}.
 \begin{enumerate}
-\item The function $\texttt{flatten}(\texttt{LoL})$ receives a list of lists $\texttt{LoL}$ as its argument.
-       This list has the form
-       \\[0.2cm]
-       \hspace*{1.3cm}
-       $\texttt{LoL} = [L_1, \cdots, L_k]$
-       \\[0.2cm]
-       where the $L_i$ are lists for $i=1,\cdots,k$.
-       
-       It returns the list
-       \\[0.2cm]
-       \hspace*{1.3cm}
-       $L_1 + \cdots + L_k$,
-       \\[0.2cm]
-       i.e.~it concatenates the lists that are elements of \texttt{Lol} and returns the resulting list.
+\item The function \texttt{invariant} checks that the invariant
+      \\[0.2cm]
+      \hspace*{1.3cm}
+      $M = 0 \vee M = 3 \vee M = C$
+      \\[0.2cm]
+      is satisfied for the given number of missionaries and cannibals.
+\item In the function \texttt{transition} 
+      we use the following convention: Since variables cannot be primed in
+      \textsl{TypeScript} we append the character $\mathtt{a}$ to the names of the original
+      variables from the set $\mathcal{V}$, while we append $\mathtt{b}$ to these names to get the primed versions of the
+      corresponding variable.
 \item The function $\mathtt{missionaries\_CSP}(n)$ receives a natural number $n$ as its argument.
        It returns a \textsc{Csp} that has a solution iff there is a solution of the \emph{missionaries and cannibals}
        problem that crosses the river exactly $n$ times.  It uses the variables
@@ -1666,13 +1634,13 @@ Figure \ref{fig:Missionaries-STS.ipynb-2} shows how we can turn the symbolic tra
        $i$ times. The variables $\mathtt{C}_i$ and $\texttt{B}_i$ denote the number of infidels and boats
        respectively.
 
-       Line 12 ensures that the invariant of the transition system is valid after every crossing of the boat.
-       Line 13 describes the mechanics of the crossing.
+       Line 25 ensures that the invariant of the transition system is valid after every crossing of the boat.
+       Line 26 ands line 27 describe the mechanics of the crossing.
 \item The function \texttt{find\_solution} tries to find a natural number $n$ such that problem can be solved
        with $n$ crossings. As the number of crossings has to be odd, we increment $n$ by
        two at the end of the \texttt{while} loop.
 
-       The function \texttt{find\_solution} needs less than 2 seconds to find the solution.
+       The function \texttt{find\_solution} takes about 4 seconds to find the solution.
 \end{enumerate}
 
 \exerciseEng
@@ -1706,8 +1674,8 @@ variables:
 \end{itemize}
 You should start from the following notebook:
 \\[0.2cm]
-\hspace*{-0.5cm}
-\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Wolf-Goat-Cabbage-STS.ipynb}{\texttt{github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Wolf-Goat-Cabbage-STS.ipynb}}
+\hspace*{1.3cm}
+\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Wolf-Goat-Cabbage-Frame.ipynb}{\texttt{Chapter-5/Wolf-Goat-Cabbage-Frame.ipynb}}
 \eox
 
 \section{The Z3 Solver}
@@ -1739,11 +1707,6 @@ by the variable $g$, the problem statements are equivalent to the following two 
 \hspace*{1.3cm}
 $b - 1 = g$ \quad and \quad $2 \cdot (g - 1) = b$.
 \\[0.2cm]
-Before we can start to solve this problem, we have to install \texttt{Z3} via \texttt{pip} using the following
-command:  
-\\[0.2cm]
-\hspace*{1.3cm}
-\texttt{pip install z3-solver}
 
 
 \begin{figure}[!ht]
@@ -1756,28 +1719,30 @@ command:
                  numbersep     = -0.2cm,
                  xleftmargin   = 0.8cm,
                  xrightmargin  = 0.8cm,
-               ]{python3}             
-    import z3
+                 ]{typescript}                
+    import { init } from 'z3-solver';                 
+    const { Context } = await init();
+    const ctx = Context("main");
     
-    boys  = z3.Int('boys')
-    girls = z3.Int('girls')
+    const boys  = ctx.Int.const('boys');
+    const girls = ctx.Int.const('girls');
     
-    S = z3.Solver()
+    const S = new ctx.Solver();
     
-    S.add(boys - 1 == girls)
-    S.add(2 * (girls - 1) == boys)
-    S.check()
-    Solution = S.model()
+    S.add(boys.sub(1).eq(girls));        // boys - 1 == girls
+    S.add(girls.sub(1).mul(2).eq(boys)); // 2 * (girls - 1) == boys
     
-    b = Solution[boys ].as_long()
-    g = Solution[girls].as_long()
+    await S.check();
+    const model = S.model();
     
-    print(f'My father has {b + g} children.')
+    const b = parseInt(model.eval(boys).toString());
+    const g = parseInt(model.eval(girls).toString());
+    console.log(`My father has ${b + g} children: ${b} boys, ${g} girls.`);
 \end{minted}
 \vspace*{-0.3cm}
 \caption{Solving a simple text problem.}
 \label{fig:Brothers-and-Sisters.ipynb}
-\end{figure}
+\end{figure} %$
 
 \noindent
 Figure \ref{fig:Brothers-and-Sisters.ipynb} on page \pageref{fig:Brothers-and-Sisters.ipynb} shows how we can
