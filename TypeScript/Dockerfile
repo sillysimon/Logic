@@ -14,7 +14,7 @@ USER ${NB_UID}
 # Switch back to jovyan to avoid accidental container runs as root
 # Add permanent mamba/pip/conda installs, data files, other user libs here
 # e.g., RUN pip install --no-cache-dir flake8
-RUN conda install -c conda-forge nodejs
+RUN conda install -c conda-forge "nodejs>=25"
 RUN mamba install 
 RUN npm init -y
 RUN npm install -g tslab
