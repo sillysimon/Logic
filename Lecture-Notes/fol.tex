@@ -1800,8 +1800,8 @@ Solve the following text problem using \texttt{Z3}.
   delicacies are integer valued.
   You should start from the following notebook:
 \\[0.2cm]
-\hspace*{0.0cm}
-\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Parrot-and-Penguin.ipynb}{\texttt{github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Parrot-and-Penguin.ipynb}}
+\hspace*{1.3cm}
+\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Parrot-and-Penguin-Frame.ipynb}{\texttt{Chapter-5/Parrot-and-Penguin-Frame.ipynb}}
 \eox
 
 \exerciseEng
@@ -1816,12 +1816,10 @@ Solve the following text problem using \texttt{Z3}.
 \textbf{Find the speed of the train!}
 
 \noindent
-\textbf{Hints:}
 \begin{enumerate}[(a)]
-\item As the speed is a real number you should declare this variable via the \texttt{Z3} function \texttt{Real} instead of using
-      the function \texttt{Int}.
-\item Be careful to not mix up different units. In particular, the time 48 minutes should be expressed as a
-      fraction of an hour.
+\item As the speed is a real number you should declare this variable via the \texttt{Z3} function \texttt{Real}
+      instead of using the function \texttt{Int}.
+\item Be careful to not mix up different units. In particular, take care not to mix up minutes and hours.     
 \item When you formulate the information given above, you will get a system of \textbf{non-linear} equations,
       which is equivalent to a quadratic equation.  This quadratic equation has two different solutions.
       One of these solutions is negative.  In order to exclude the negative solution you need to add a
@@ -1830,7 +1828,7 @@ Solve the following text problem using \texttt{Z3}.
 You should start from the following notebook:
 \\[0.2cm]
 \hspace*{0.8cm}
-\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Train-Z3.ipynb}{\texttt{github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Train-Z3.ipynb}}
+\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Train-Speed-Frame.ipynb}{\texttt{Chapter-5/Train-Speed-Frame.ipynb}}
 \eox
 
 \exerciseEng
@@ -1838,7 +1836,11 @@ Solve the following text problem using \texttt{Z3}.
 
 \begin{minipage}[b]{0.9\linewidth}
 \textsl{Alice is twice as old as Bob was when Alice was as old as Bob is now. When Bob is as old as Alice is now, the sum of their ages will be 90. How old are Alice and Bob now?}
-\end{minipage} 
+\end{minipage}
+You should start from the following notebook:
+\\[0.2cm]
+\hspace*{0.8cm}
+\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Alice-and-Bob-Frame.ipynb}{\texttt{Chapter-5/Alice-and-Bob-Frame.ipynb}}
 \eox
 
 \subsection{The Knight's Tour}
