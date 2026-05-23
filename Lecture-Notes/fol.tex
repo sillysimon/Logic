@@ -1722,12 +1722,12 @@ $b - 1 = g$ \quad and \quad $2 \cdot (g - 1) = b$.
                  ]{typescript}                
     import { init } from 'z3-solver';                 
     const { Context } = await init();
-    const ctx = Context("main");
+    const Z3 = Context("main");
     
-    const boys  = ctx.Int.const('boys');
-    const girls = ctx.Int.const('girls');
+    const boys  = Z3.Int.const('boys');
+    const girls = Z3.Int.const('girls');
     
-    const S = new ctx.Solver();
+    const S = new Z3.Solver();
     
     S.add(boys.sub(1).eq(girls));        // boys - 1 == girls
     S.add(girls.sub(1).mul(2).eq(boys)); // 2 * (girls - 1) == boys
@@ -1749,26 +1749,47 @@ Figure \ref{fig:Brothers-and-Sisters.ipynb} on page \pageref{fig:Brothers-and-Si
 solve the given problem using the \textsl{TypeScript}
 interface of Z3.
 \begin{enumerate}
-\item In line 1 we import the module \texttt{z3} so that we can use the TypeScript \textsc{Api} of Z3.
+\item In line 1 we import the module \texttt{z3-solver} so that we can use the TypeScript \textsc{Api} of Z3.
       The documentation of this \textsc{Api} is available at the following address:
       \\[0.2cm]
-      \hspace*{1.3cm}
-      \href{https://ericpony.github.io/z3py-tutorial/guide-examples.htm}{https://ericpony.github.io/z3py-tutorial/guide-examples.htm}
+      \hspace*{1.0cm}
+      \url{https://microsoft.github.io/z3guide/programming/Z3%20JavaScript%20Examples/}
       \\[0.2cm]
       However, there is no need for you to consult this documentation as we will only use a very small part of
-      the \textsc{Api} of \texttt{Z3} in this lecture. 
-\item Lines 3 and 4 creates the \texttt{Z3} variables \mytt{boys} and \mytt{girls} as integer valued variables.
+      the \textsc{Api} of \texttt{Z3} in this lecture.
+\item Next, we have to initialize this solver using the function \texttt{init}.
+      Since this is an asynchronous function, we have to \texttt{await} the result. The result of the call
+      \texttt{init()} is an object with a property \texttt{Context}, which is a function.
+\item In line 3 we use this function to create the object \texttt{Z3}.
+      
+      In the following examples we will omit these three lines, as they are always the same.
+\item Lines 5 and 6 creates the \texttt{Z3} variables \mytt{boys} and \mytt{girls} as integer valued variables.
       The function \mytt{Int} takes one argument, which has to be a string.  This string is the name of the
       variable.  We store these variables in TypeScript variables of the same name.  It would be possible to use
       different names for the TypeScript variables, but that would be very confusing.
-\item Line 6 creates an object of the class \texttt{Solver}.  This is the constraint solver provided by
+\item Line 8 creates an object of the class \texttt{Solver}.  This is the constraint solver provided by
       \texttt{Z3}.
-    \item Lines 8 and 9 add the constraints expressing that
+      \item Lines 10 and 11 add the constraints expressing that
       \begin{enumerate}[(a)]
-      \item the number of girls is one less than the number of boys \quad and 
-      \item that my sister has twice as many brothers as she has sisters 
+      \item the number of girls is one less than the number of boys \texttt{boys - 1 == girls},
+      \item that my sister has twice as many brothers as she has sisters \texttt{2 * (girls - 1) == boys}.
       \end{enumerate}
       as constraints to the solver \texttt{S}.
+
+      Unfortunately, \textsl{TypeScript} does not support operator overloading.  Therefore, we have to use the
+      following methods:
+      \begin{enumerate}[(a)]
+      \item $x\texttt{.add}(y)$ computes $x + y$,
+      \item $x\texttt{.sub}(y)$ computes $x - y$,
+      \item $x\texttt{.mul}(y)$ computes $x * y$,
+      \item $x\texttt{.div}(y)$ computes $x / y$,
+      \item $x\texttt{.eq}(y)$ computes $x = y$,
+      \item $x\texttt{.neq}(y)$ computes $x \not= y$,
+      \item $x\texttt{.le}(y)$ computes $x \leq y$,
+      \item $x\texttt{.ge}(y)$ computes $x \geq y$,
+      \item $x\texttt{.lt}(y)$ computes $x < y$,
+      \item $x\texttt{.gt}(y)$ computes $x > y$,
+      \end{enumerate}
 \item In line 10 the method \mytt{check} examines whether the given set of constraints is satisfiable.
       In general, this method returns one of the following results:
       \begin{enumerate}[(a)]
@@ -1776,14 +1797,14 @@ interface of Z3.
       \item \mytt{unsat} is returned if the problem is unsolvable,
       \item \mytt{unknown} is returned if \texttt{Z3} is not powerful enough to solve the given problem.
       \end{enumerate}
+      Note that \texttt{check} is an asynchronous method, so we have to \texttt{await} for it to \texttt{finish}.
+      
 \item Since in our case the method \mytt{check} returns \texttt{sat}, we can extract the solution that is
-      computed via the method \mytt{model} in line 11.  
+      computed via the method \mytt{model} in line 14.  
 \item In order to extract the values that have been computed by \texttt{Z3} for the variables \mytt{boys} and
-      \mytt{girls}, we can use dictionary syntax and write \mytt{Solution[boys]} and
-      \mytt{Solution[girls]} to extract these values.  However, these values are not stored as integers but
-      rather as objects of the class \mytt{IntNumRef}, which is some internal class of \texttt{Z3} to store
-      integers.  This class provides the method \mytt{as\_long} that converts its argument into an integer number.
+      \mytt{girls}, we can use the method \texttt{eval} and convert the result to a string.
 \end{enumerate}
+\pagebreak
 
 \exerciseEng
 Solve the following text problem using \texttt{Z3}.
@@ -1837,6 +1858,8 @@ Solve the following text problem using \texttt{Z3}.
 \begin{minipage}[b]{0.9\linewidth}
 \textsl{Alice is twice as old as Bob was when Alice was as old as Bob is now. When Bob is as old as Alice is now, the sum of their ages will be 90. How old are Alice and Bob now?}
 \end{minipage}
+
+\noindent
 You should start from the following notebook:
 \\[0.2cm]
 \hspace*{0.8cm}
