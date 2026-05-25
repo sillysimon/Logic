@@ -1924,40 +1924,48 @@ Next, we have to formulate the constraints.  In this case, there are two kinds o
                  firstnumber   = 1,
                  bgcolor       = sepia,
                  numbers       = left,
-                 numbersep     = -0.2cm,
+                 numbersep     = 0.2cm,
                  xleftmargin   = 0.0cm,
                  xrightmargin  = 0.0cm,
-               ]{python3}
-    import z3
-               
-    def row(i): return f'R{i}'
-    def col(i): return f'C{i}'
-    
-    def is_knight_move(row, col, rowX, colX):
-        Formulas = set()
-        S = {1, 2, -1, -2}
-        DeltaSet = {(x, y) for x in S for y in S if abs(x) != abs(y)}
-        for delta_r, delta_c in DeltaSet:
-            Formulas.add(z3.And(rowX == row + delta_r, colX == col + delta_c))
-        return z3.Or(Formulas)
-            
-    def all_different(Rows, Cols):
-        Result = set()
-        for i in range(62+1):
-            for j in range (i+1, 63+1):
-                Result.add(z3.Or(Rows[i] != Rows[j], Cols[i] != Cols[j]))
-        return Result
-            
-    def all_constraints(Rows, Cols):
-        Constraints = all_different(Rows, Cols)
-        Constraints.add(Rows[0] == 0)
-        Constraints.add(Cols[0] == 0)
-        for i in range(62+1):
-            Constraints.add(is_knight_move(Rows[i], Cols[i], Rows[i+1], Cols[i+1]))
-        for i in range(63+1):
-            Constraints.add(Rows[i] >= 0) 
-            Constraints.add(Cols[i] >= 0) 
-        return Constraints
+                 ]{typescript}
+import { init, Bool, BitVec } from 'z3-solver';
+const { Context } = await init();
+const Z3 = Context("main");
+                 
+function row(i: number): string { return `R${i}`; }
+function col(i: number): string { return `C${i}`; }
+
+const toBitVec = (x: number): BitVec => Z3.BitVec.val  (x, 4);
+const toBitVar = (x: string): BitVec => Z3.BitVec.const(x, 4);
+
+function isKnightMove(row: BitVec, col: BitVec,
+                      rowX: BitVec, colX: BitVec): Bool {
+    const deltaSet = [ [ 2, 1], [ 2, -1], [-2, 1], [-2, -1],
+                       [ 1, 2], [ 1, -2], [-1, 2], [-1, -2] ];
+    const formulas = deltaSet.flatMap(([deltaRow, deltaCol]) =>                         
+        Z3.And(rowX.eq(row.add(toBitVec(deltaRow))),     // rowX == row + deltaRow,
+               colX.eq(col.add(toBitVec(deltaCol))) ));  // colX == col + deltaCol 
+    return Z3.Or(...formulas);
+}
+
+function allDifferent(Rows: BitVec[], Cols: BitVec[]): Bool[] {
+    return range(0, 62).flatMap(i => 
+        range(i + 1, 63).map(j => Z3.Or(Rows[i].neq(Rows[j]), Cols[i].neq(Cols[j])))
+    );
+}
+
+function allConstraints(Rows: BitVec[], Cols: BitVec[]): Bool[] {
+    const zero  = toBitVec(0);
+    const eight = toBitVec(8);
+    return
+        [ ...allDifferent(Rows, Cols), 
+          Rows[0].eq(zero), Cols[0].eq(zero),
+          ...range(0, 62).map(
+              i => isKnightMove(Rows[i], Cols[i], Rows[i+1], Cols[i+1])),
+          ...range(0, 63).flatMap(
+              i => [Rows[i].ult(eight), Cols[i].ult(eight)])
+        ];
+}   
 \end{minted}
 \vspace*{-0.3cm}
 \caption{The Knight's Tour: Computing the constraints.}
@@ -1968,12 +1976,29 @@ Next, we have to formulate the constraints.  In this case, there are two kinds o
 
 Figure \ref{fig:Knight's Tour with Z3.ipynb-1} shows how we can formulate the puzzle using \texttt{Z3}.
 \begin{enumerate}
-\item In line 1 we import the library \texttt{z3}.
- 
-\item We define the auxiliary functions \texttt{row} and \texttt{col} in line 3 and 4.
+\item In line 1 we import the library \texttt{z3-solver} and import the types \texttt{Bool} and
+      \texttt{BitVec} from this library. 
+      \begin{enumerate}
+      \item \texttt{Bool} represents Boolean values.
+      \item \texttt{BitVec} represents vectors of bits of a given length.  These vectors can be used to
+            represent unsigned integers.
+      \end{enumerate}
+  
+\item In line 2 we initialize the solver and use it to create \texttt{Z3}.
+      This is the same code that we have used previously in Figure \ref{fig:Brothers-and-Sisters.ipynb} on page
+      \pageref{fig:Brothers-and-Sisters.ipynb}.  
+\item We define the auxiliary functions \texttt{row} and \texttt{col} in line 5 and 6.
       Given a natural number $i$, the expression $\mathtt{row}(i)$ returns the string $\texttt{'R}i\texttt{'}$
       and  $\mathtt{col}(i)$ returns the string  $\texttt{'C}i\texttt{'}$.  These strings are the names of the
       variables $\mathtt{R}_i$ and $\mathtt{C}_i$.
+\item The function \texttt{toBitVec} takes a natural number and turns it into a bit vector of length 4.
+\item The function \texttt{toBitVar} creates a \texttt{Z3} variable that represents a bit vector of length 4.
+
+      The variables $\mathtt{R}_i$ and $\mathtt{C}_i$ will be represented as bit vectors of length 4.
+      While the values of $\mathtt{R}_i$ and $\mathtt{C}_i$  are elements form the set $\{0, \cdots, 7\}$ and
+      these values could be represented with $4$ bits, we need to be able to add the number $1$ and $2$ to
+      these values later.  If we had only $3$ bits, this would result in an overflow. 
+      
 \item The function \texttt{is\_knight\_move} takes four parameters:
       \begin{enumerate}
       \item \texttt{row} is a \texttt{Z3} variable that specifies the row of the position of the knight before
@@ -1987,13 +2012,22 @@ Figure \ref{fig:Knight's Tour with Z3.ipynb-1} shows how we can formulate the pu
       \end{enumerate}
       The function checks whether the move from position 
       $\langle \mathtt{R}_i, \mathtt{C}_i \rangle$ to the position $\langle \mathtt{R}_{i+1}, \mathtt{C}_{i+1} \rangle$
-      is a legal move for a knight.  In line 13 we use the fact that the function \texttt{z3.Or}
-      can take any number of arguments.  If \texttt{Formulas} is the set 
+      is a legal move for a knight.
+
+      In line 13-14 we create the possible delta pairs.  For example, the pair \texttt{[2, 1]} specifies that
+      the knight moves 2 square horizontally to the right and 1 square down.
+      (The square with coordinates  \texttt{[0, 0]} is the top left corner ofthe board.)
+
+      In line 16 we specify that \texttt{rowX == row + deltaRow}, while line 17 specifies the equation
+      \texttt{colX == col + deltaCol}.
+      
+      In line 18 we use the fact that the function \texttt{Z3.Or} can take any number of arguments.  If
+      \texttt{Formulas} is the set  
       \\[0.2cm]
       \hspace*{1.3cm}
       $\texttt{Formulas} = \{f_1, \cdots, f_n\}$,
       \\[0.2cm]
-      then the notation \texttt{z3.Or(*Formulas)} is expanded into the call
+      then the notation \texttt{z3.Or(...Formulas)} is expanded into the call
       \\[0.2cm]
       \hspace*{1.3cm}
       $\texttt{z3.Or}(f_1, \cdots, f_n)$,
@@ -2002,7 +2036,7 @@ Figure \ref{fig:Knight's Tour with Z3.ipynb-1} shows how we can formulate the pu
       \\[0.2cm]
       \hspace*{1.3cm}
       $f_1 \vee \cdots \vee f_n$.
-\item The function \texttt{all\_different} takes two parameters:
+\item The function \texttt{allDifferent} takes two parameters:
       \begin{enumerate}[(a)]
       \item \texttt{Rows} is a list of \texttt{Z3} variables. The \texttt{Z3} variable \texttt{Rows[i]}
             specifies the row of the position of the knight after the $i^{\textrm{th}}$ move. 
@@ -2013,21 +2047,29 @@ Figure \ref{fig:Knight's Tour with Z3.ipynb-1} shows how we can formulate the pu
       $\langle \mathtt{R}_i, \mathtt{C}_i \rangle$ for $i=0,1\cdots, 63$ are all different from each other.
       Note that the position $\langle \mathtt{R}_i, \mathtt{C}_i \rangle$ is different from the position
       $\langle \mathtt{R}_j, \mathtt{C}_j \rangle$ iff $R_i$ is different from $R_j$ or $C_i$ is different from
-      $C_j$. 
+      $C_j$.
 \item The function \texttt{all\_constraints} computes the set of all constraints.
       The parameters for this function are the same as those for the function \texttt{all\_different}.
       In addition to the constraints already discussed this function specifies that the knight starts
       its tour at the upper left corner of the board.
 
-      Furthermore, there are constraints that the variables $\mathtt{R}_i$ and $\mathtt{C}_i$ are all
+      Furthermore, there are constraints of the form
+      \\[0.2cm]
+      \hspace*{1.3cm}
+      $\mathtt{R}_i < 8$ \quad and \quad $\mathtt{C}_i < 8$.
+      \\[0.2cm]
       non-negative.  These constraints are needed as we will model the variables with bit vectors of length 4.
-      These bit vectors store integers in
-      \href{https://en.wikipedia.org/wiki/Two%27s_complement}{two's complement} representation.
-      In two's complement representation of a bit vector of length 4 we can model integers from the set
-      $\{-8, \cdots, 7\}$.  If we add the number $1$ to a 4-bit bit vector $v$ that represents the number $7$,
-      then an overflow will occur and the result will be $-8$ instead of $8$. This could happen in the
-      additions that are performed in the formulas computed by the function \texttt{is\_knight\_move}.
-      We can exclude these cases by adding the constraints that all variables are non-negative.
+      These constraints ensure that the knight does not jump off the board.  Remember that the function
+      \texttt{isKnightMove} performs additions like
+      \\[0.2cm]
+      \hspace*{1.3cm}
+      $\mathtt{R}_i + 2$ \quad and \quad $\mathtt{R_i} - 2$
+      \\[0.2cm]
+      If $\mathtt{R}_i$ is $7$, then $\mathtt{R}_i + 1$ would be $9$ and hence the knight would no longer be on
+      the board.
+
+      Similarly, if $\mathtt{R}_i$ is $0$, then $\mathtt{R}_i - 1$ would be interpreted as $15$,
+      since we are working with unsigned bit vectors of 4 bits.
 \end{enumerate}
 
 \begin{figure}[!ht]
@@ -2038,60 +2080,70 @@ Figure \ref{fig:Knight's Tour with Z3.ipynb-1} shows how we can formulate the pu
                  bgcolor       = sepia,
                  numbers       = left,
                  numbersep     = -0.2cm,
-                 xleftmargin   = 0.8cm,
-                 xrightmargin  = 0.8cm,
-               ]{python3}
-    def solve():
-        Rows = [z3.BitVec(row(i), 4) for i in range(63+1)]
-        Cols = [z3.BitVec(col(i), 4) for i in range(63+1)]
-        Constraints = all_constraints(Rows, Cols)
-        S = z3.Solver()
-        S.add(Constraints)
-        result = str(S.check())
-        if result == 'sat':
-            Model    = S.model()
-            Solution = (  { row(i): Model[Rows[i]] for i in range(63+1) } 
-                        | { col(i): Model[Cols[i]] for i in range(63+1) })
-            return Solution
-        elif result == 'unsat':
-            print('The problem is not solvable.')
-        else:
-            print('Z3 cannot determine whether the problem is solvable.')
-\end{minted}
+                 xleftmargin   = 0.0cm,
+                 xrightmargin  = 0.0cm,
+               ]{typescript}
+
+    function parseVal(expr: BitVec): number {
+        return parseInt(expr.toString().substring(2), 16);
+    }
+    
+    async function solve(): Promise<[number, number][]> {
+        const Rows: BitVec[] = range(63).map(i => toBitVar(row(i)));
+        const Cols: BitVec[] = range(63).map(i => toBitVar(col(i)));;
+        const solver = new Z3.Solver();
+        solver.add(...allConstraints(Rows, Cols));
+        const check = await solver.check();      
+        if (check == 'sat') {
+            const model = solver.model();
+            const solution: [number, number][] = range(63).map(i => 
+                [ parseVal(model.eval(Rows[i])),
+                  parseVal(model.eval(Cols[i])) ]);
+            return solution;
+        } else if (check == 'unsat') {
+            console.log('The problem is not solvable.');
+        } else {
+            console.log('Z3 cannot determine whether the problem is solvable.');
+        }
+    }\end{minted}
 \vspace*{-0.3cm}
 \caption{The function \texttt{solve}.}
 \label{fig:Knight's Tour with Z3.ipynb-2}
 \end{figure}
 
+Finally, the function \texttt{solve} that is shown in Figure \ref{fig:Knight's Tour with Z3.ipynb-2} on page
+\pageref{fig:Knight's Tour with Z3.ipynb-2} can be used to solve the puzzle.
+The auxiliary function \texttt{parseVal} takes a bit vector and extracts the value as an integer.
+
+The purpose of the function \texttt{solve} is to construct a \textsc{Csp} encoding the puzzle and to find a
+solution of this \textsc{Csp} unsing \texttt{Z3}.
+If successful, it returns a list of the form
+\\[0.2cm]
+\hspace*{1.3cm}
+\texttt{[ [$\mathtt{R}_0$, $\mathtt{C}_0$], $\cdots$, [$\mathtt{R}_{63}$, $\mathtt{C}_{63}$] ]} 
+\\[0.2cm]
+that contains the positions of the knight after each of its 63 moves.
+\begin{enumerate}
+\item In line 7 and 8 we create the \texttt{Z3} variables that specify the positions of the knight after its
+      $i^{\mathrm{th}}$ move.  $\texttt{Rows}[i]$ specifies the row of the knight after the its
+      $i^{\mathrm{th}}$ move, while $\texttt{Cols}[i]$ specifies the column.
+\item We create a solver object in line 9 and add the constraints to this solver in the following line.
+\item The function \texttt{check} tries to build a model satisfying the constraints, while the function
+      \texttt{model} extracts this model if it exists.
+\item Finally, in line 14--16 we create a list that contains the values of all our variables.
+\end{enumerate}
+
 \begin{figure}[!ht]
   \centering
-  \framebox{\epsfig{file=Figures/knights-problem.png, scale=0.5}} 
+  \framebox{\epsfig{file=Figures/knights-problem.png, scale=0.6}} 
   \caption{A solution of the knight's problem.}
   \label{fig:knights-problem.png}
 \end{figure}
 
-Finally, the function \texttt{solve} that is shown in Figure \ref{fig:Knight's Tour with Z3.ipynb-2} on page
-\pageref{fig:Knight's Tour with Z3.ipynb-2} can be used to solve the puzzle.
-The purpose of the function \texttt{solve} is to construct a \textsc{Csp} encoding the puzzle and to find a
-solution of this \textsc{Csp} unsing \texttt{Z3}.
-If successful, it returns a dictionary that maps every variable name to the corresponding value of the solution
-that has been found.
-\begin{enumerate}
-\item In line 2 and 3 we create the \texttt{Z3} variables that specify the positions of the knight after its
-      $i^{\mathrm{th}}$ move.  $\texttt{Rows}[i]$ specifies the row of the knight after the its
-      $i^{\mathrm{th}}$ move, while $\texttt{Cols}[i]$ specifies the column.
-\item We compute the set of all constraints in line 4.   
-\item We create a solver object in line 5 and add the constraints to this solver in the following line.
-\item The function \texttt{check} tries to build a model satisfying the constraints, while the function
-      \texttt{model} extracts this model if it exists.
-\item Finally, in line 10 and 11 we create a dictionary that maps all of our variables to the corresponding
-      values that are found in the model.  Note that $\texttt{row}(i)$ returns the name of the
-      \texttt{Z3} variable $\texttt{Rows}[i]$ and similarly $\mathtt{col}(i)$ returns the name of the
-      \texttt{Z3} variable $\texttt{Cols}[i]$.
-      This dictionary is then returned.
-\end{enumerate}
+\noindent
 Figure \ref{fig:knights-problem.png} on page \pageref{fig:knights-problem.png} shows a solution that has been
 computed by the program discussed above.
+
 
 
 
