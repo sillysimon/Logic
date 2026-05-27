@@ -1942,7 +1942,7 @@ function isKnightMove(row: BitVec, col: BitVec,
                       rowX: BitVec, colX: BitVec): Bool {
     const deltaSet = [ [ 2, 1], [ 2, -1], [-2, 1], [-2, -1],
                        [ 1, 2], [ 1, -2], [-1, 2], [-1, -2] ];
-    const formulas = deltaSet.flatMap(([deltaRow, deltaCol]) =>                         
+    const formulas = deltaSet.map(([deltaRow, deltaCol]) =>                         
         Z3.And(rowX.eq(row.add(toBitVec(deltaRow))),     // rowX == row + deltaRow,
                colX.eq(col.add(toBitVec(deltaCol))) ));  // colX == col + deltaCol 
     return Z3.Or(...formulas);
@@ -2239,12 +2239,12 @@ function invariant(M: Arith, C: Arith, B: Arith): Bool[] {
 function boatOK(Ma: Arith, Ca: Arith, Ba: Arith,
                 Mb: Arith, Cb: Arith, Bb: Arith): Bool
 {
-    const diffM = Ma.sub(Mb);            // Ma - Mb
-    const diffC = Ca.sub(Cb);            // Ca - Cb
-    const totalDiff = diffM.add(diffC);  // Ma - Mb + Ma - Mb
-            // B = 1 → 1 ≤ Ma - Mb + Ma - Mb ≤ 2 ∧ Mb ≤ Ma ∧ Cb ≤ Ca
-   return Z3.Implies(Ba.eq(1),
-                     Z3.And(totalDiff.ge(1), totalDiff.le(2), Mb.le(Ma), Cb.le(Ca)));
+    const numMis = Ma.sub(Mb);           // Ma - Mb
+    const numCan = Ca.sub(Cb);           // Ca - Cb
+    const all    = numMis.add(numCan);   // Ma - Mb + Ma - Mb
+    // B = 1 → 1 ≤ Ma - Mb + Ma - Mb ≤ 2 ∧ Mb ≤ Ma ∧ Cb ≤ Ca
+    return Z3.Implies(Ba.eq(1),
+                      Z3.And(all.ge(1), all.le(2), Mb.le(Ma), Cb.le(Ca)));
 }
 
 function transition(Ma: Arith, Ca: Arith, Ba: Arith,
@@ -2267,15 +2267,28 @@ the associated symbolic transition system using the constraint solver \texttt{Z3
       number of missionaries, cannibals, and boats on the eastern shore.  We have defined these variables as
       integers, although the set of values really is the set $\{0,1,2,3\}$.  We will later add appropriate
       inequalities to restrict these variables to this set.
-\item The definition of \texttt{start} and \texttt{goal} in line 6 and 9 are analogous the corresponding
-      definitions in \myfig{Missionaries-STS.ipynb}.  They describe that initially everybody and the boat is on
-      the eastern shore, while in the end everybody is on the western shore.
+
+      Furthermore, we define the variables \texttt{Mx}, \texttt{Cx}, and \texttt{Bx}.  These variables are used
+      to specify the transition formula.  They represent the
+      number of missionaries, cannibals, and boats in a transition after the boat has crossed the river. 
+\item The function \texttt{start} in line 5 creates the formula
+      \\[0.2cm]
+      \hspace*{1.3cm}
+      $M = 3 \wedge C = 3 \wedge B = 1$
+      \\[0.2cm]
+      specifying that there are 3 missionaries, 3 cannibals, and 1 boat on the left shore.
 
       Note that we have to use the \texttt{Z3} function \texttt{And} to form the conjunction of the conditions.
       The function takes an arbitrary number of arguments.  The constraint solver \texttt{Z3} also provides the
       functions \texttt{Or} and \texttt{Implies}.  The function \texttt{Or} computes the disjunction of its
       arguments, while the function $\texttt{Implies}(A, B)$ represents the formula $A \rightarrow B$.
-\item The definition of the invariant in 11 -- 15 has become more complicated because in addition to the
+\item The function \texttt{goal} in line 9 creates the formula
+      \\[0.2cm]
+      \hspace*{1.3cm}
+      $M = 0 \wedge C = 0 \wedge B = 0$
+      \\[0.2cm]
+      specifying that there are 0 missionaries, 0 cannibals, and 0 boats on the left shore.
+\item The definition of the invariant in 13 -- 19 has become more complicated because in addition to the
       formula 
       \\[0.2cm]
       \hspace*{1.3cm}
@@ -2283,8 +2296,38 @@ the associated symbolic transition system using the constraint solver \texttt{Z3
       \\[0.2cm]
       we also have to add constraints that restrict the values of $M$ and $C$ to the set $\{0, 1, 2, 3\}$,
       while $B$ has to be an element of the set $\{0,1\}$.
-\item The definition of the formula describing the transitions of the symbolic transition system is 
-      analogous to the corresponding definition in \myfig{Missionaries-STS.ipynb}.
+\item The function \texttt{boatOK} takes 6 arguments:
+      \begin{enumerate}[(a)]
+      \item \texttt{Ma} is the number of missionaries on the eastern shore before the crossing.
+      \item \texttt{Ca} is the number of infidels on the eastern shore before the crossing.
+      \item \texttt{Ba} is the number of boats on the eastern shore before the crossing. 
+      \item \texttt{Mb} is the number of missionaries on the eastern shore after the crossing.
+      \item \texttt{Cb} is the number of infidels on the eastern shore after the crossing.
+      \item \texttt{Bb} is the number of infidels on the eastern shore after the crossing.
+      \end{enumerate}
+
+      The function returns a formula that checks that the following condition holds when the boat 
+      crosses the river from the western shore to the eastern shore:
+      $$ \mathtt{Ba} = 1 \rightarrow 1 \leq \mathtt{Ma} - \mathtt{Mb} + \mathtt{Ca} - \mathtt{Cb} \leq 2 $$
+      Here \texttt{Ma - Mb} is the number of missionaries on the boat and  \texttt{Cb - Ca} is the number of
+      infidels on the boat.  The formula expresses that there is at least one but not more than two passengers
+      on the boat. 
+      The condition $\texttt{Ba} = 1$ ensure that the boat is initially on the western shore, so we are
+      crossing from the west to the east.
+\item The function \texttt{transition} again takes six arguments, which are interpreted in the same way as
+      in the function \texttt{boatOK}.
+
+      It returns a formula that expresses the following:
+      \begin{enumerate}
+      \item The boat changes the sides in every transition:
+            \\[0.2cm]
+            \hspace*{1.3cm}
+            $\mathtt{Bb} = 1 - \mathtt{Ba}$
+      \item If the boat crosses the river from the western shore to the eastern shore,
+            then there is at least one and at most two passengers.
+      \item If the boat crosses the river from the eastern shore to the western shore,
+            then there is at least one and at most two passengers.
+      \end{enumerate}
 \end{enumerate}
 
 \begin{figure}[!ht]
@@ -2311,15 +2354,14 @@ async function missionariesCSP(n: number): Promise<Map<string, number>> {
     solver.add(start(Ms[0], Cs[0], Bs[0]));
     solver.add( goal(Ms[n], Cs[n], Bs[n]));
     for (let i = 0; i < n; ++i) {
-        solver.add(...invariant(Ms[i], Cs[i], Bs[i]));
+        solver.add(...invariant( Ms[i], Cs[i], Bs[i]));
         solver.add(...transition(Ms[i], Cs[i], Bs[i], Ms[i+1], Cs[i+1], Bs[i+1]));
     }
-    solver.add(...invariant(Ms[n], Cs[n], Bs[n]));
     const result = await solver.check();
     if (result == 'sat') {
         const model = solver.model();
         const solution = new Map<string, number>();
-        for (let i = 0; i <= n; i++) {
+        for (let i = 0; i <= n; ++i) {
             solution.set(`M${i}`, parseInt(model.eval(Ms[i]).toString()));
             solution.set(`C${i}`, parseInt(model.eval(Cs[i]).toString()));
             solution.set(`B${i}`, parseInt(model.eval(Bs[i]).toString()));
@@ -2327,29 +2369,41 @@ async function missionariesCSP(n: number): Promise<Map<string, number>> {
         return solution;
     } 
 }
+
+async function findSolution(): Promise<Map<string, number>> {
+    let n = 1;
+    while (true) {
+        console.log(`Trying n=${n}...`);
+        const solution = await missionariesCSP(n);
+        if (solution) {
+            return solution;
+        }
+        n += 2;
+    }
+}  
 \end{minted}
 \vspace*{-0.3cm}
 \caption{Solving The Missionaries-and-Cannibals-Problem with \texttt{Z3}, part \texttt{II}.}
 \label{fig:Missionaries-Z3.ipynb-2}
-\end{figure}
+\end{figure} %$
 
 Figure \ref{fig:Missionaries-Z3.ipynb-2} on page \pageref{fig:Missionaries-Z3.ipynb-2} show the implementation
-of the function \texttt{missionaries\_CSP} that takes a natural number $n$ as its input and then creates a
+of the function \texttt{missionariesCSP} that takes a natural number $n$ as its input and then creates a
 \textsc{Csp} that is solvable if and only if the symbolic transition system shown in
 \myfig{Missionaries-Z3.ipynb-1} has a solution involving $n$ transitions.
 \begin{enumerate}
-\item Line 2 creates the solver object \texttt{S}.
-\item Line 3--5 create the associated variables.
-\item Line 6 creates the constraint corresponding to the initial state of the symbolic transition system.
-\item Line 7 creates the constraint corresponding to the goal state.
-\item The \texttt{for}-loop in line 8 ensures two things:
+\item Line 4 creates the solver object.
+\item Line 5--10 create the associated variables $\mathtt{M}_i$, $\mathtt{C}_i$, and $\mathtt{B}_i$
+      for $i=0, \cdots, n$.
+\item Line 11 create the constraint specifying the the start state.    
+\item Line 12 creates the constraint corresponding to the goal state.
+\item The \texttt{for}-loop in line 13--16 ensures two things:
   \begin{enumerate}[(a)]
   \item Every intermediate state has to satisfy the invariant.
   \item Every transition from a state to the successor state has to satisfy the transition formula.
   \end{enumerate}
-\item Line 12 feeds the constraints to the solver.
 \item Line 13 checks whether the resulting \textsc{Csp} is solvable.
-\item If it is solvable, we return a dictionary that associates every variable $\texttt{M}_i$,  $\texttt{C}_i$,
+\item If it is solvable, we return a \texttt{Map} that associates every variable $\texttt{M}_i$,  $\texttt{C}_i$,
       $\texttt{B}_i$ with the corresponding value of the solution.
 \item The function \texttt{find\_solution} searches for a value of $n \in \mathbb{N}$ such that the problem is
       solvable in $n$ steps.
@@ -2410,8 +2464,8 @@ Your task is to solve this puzzle by coding it as a symbolic transition system. 
 transition system using the constraint solver \texttt{Z3}.
 Start with the following file:
 \\[0.2cm]
-\hspace*{0.0cm}
-\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Bridge-Torch.ipynb}{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Bridge-Torch.ipynb}.
+\hspace*{1.3cm}
+\href{https://github.com/karlstroetmann/Logic/blob/master/TypeScript/Chapter-5/Bridge-Torch-Z3-Frame.ipynb}{Bridge-Torch-Z3-Frame.ipynb}.
 \eox
 
 

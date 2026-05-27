@@ -181,7 +181,7 @@ The formula is now just the quantifier-free matrix, $M$.
 
 \subsection{Step 7: Conversion of the Matrix to Conjunctive Normal Form (\textsc{Cnf})}
 
-The quantifier-free matrix $M'$ obtained from the previous step must now be converted into conjunctive normal form (\textsc{Cnf}). A formula is in \textsc{Cnf} if it is a conjunction of one or more clauses, where each clause is a disjunction of literals. This primarily involves applying the distributive laws to move disjunctions inwards over conjunctions:
+The quantifier-free matrix $M$ obtained from the previous step must now be converted into conjunctive normal form (\textsc{Cnf}). A formula is in \textsc{Cnf} if it is a conjunction of one or more clauses, where each clause is a disjunction of literals. This primarily involves applying the distributive laws to move disjunctions inwards over conjunctions:
 \begin{itemize}
 \item $A \lor (B \land C) \quad\Leftrightarrow\quad (A \lor B) \land (A \lor C)$,
 \item $(A \land B) \lor C \quad\Leftrightarrow\quad (A \lor C) \land (B \lor C)$.
@@ -201,9 +201,12 @@ Once the matrix is in \textsc{Cnf}, it has the form $C_1 \land C_2 \land \dots \
 \item The clauses themselves are disjunctions of literals and are also written as sets.
 \end{itemize}
 
-\subsection{Step 9: Comprehensive Example Illustrating All Steps}
+\subsection{Comprehensive Example Illustrating All Steps}
 Consider the First-Order Logic formula:
+\\[0.2cm]
+\hspace*{1.3cm}
 $\phi := \forall x: \bigl(R(x) \rightarrow (\exists y: (P(x,y) \land \neg Q(y)) \land \forall z: S(x,z)))$.
+\\[0.2cm]
 The transformation proceeds as follows:
 \begin{enumerate}
 \item \textbf{Step 1: Elimination of Implications and Biconditionals} \\
@@ -219,14 +222,7 @@ The transformation proceeds as follows:
     The variables $x, y, z$ are bound by distinct quantifiers and their scopes are nested or separate as required. No renaming is needed at this stage for these variables.
 
 \item \textbf{Step 4: Conversion to Prenex Normal Form (\textsc{Pnf})} \\
-      Move all quantifiers to the front. $\exists y$ and $\forall z$ are within the scope of $\forall x$. \\
-      So, $(\exists y: (P(x,y) \land \neg Q(y))) \land \forall z: S(x,z)$ becomes
-      \\[0.2cm]
-      \hspace*{1.3cm}
-   $\exists y: \forall z: \Bigl(\bigl(P(x,y) \land \neg Q(y)\bigr) \land S(x,z)\Bigr)$,
-      \\[0.2cm]
-      since $z$ is not free in the left part and $y$ is not free in the right. 
-      Thus we have 
+      Move all quantifiers to the front. We get
       \\[0.2cm]
       \hspace*{1.3cm}
       $\phi \quad\Leftrightarrow\quad
