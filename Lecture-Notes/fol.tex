@@ -2212,41 +2212,48 @@ that has already been discussed earlier.
                  firstnumber   = 1,
                  bgcolor       = sepia,
                  numbers       = left,
-                 numbersep     = -0.2cm,
-                 xleftmargin   = 0.8cm,
-                 xrightmargin  = 0.8cm,
-               ]{python3}
-    M = z3.Int('M')
-    C = z3.Int('C')
-    B = z3.Int('B')
-    
-    def start(M, C, B):
-        return z3.And(M == 3, C == 3, B == 1)
-    
-    def goal(M, C, B):
-        return z3.And(M == 0, C == 0, B == 0)
-    
-    def invariant(M, C, B):
-        return z3.And(z3.Or(M == 0, M == 3, M == C),
-                      0 <= M, M <= 3,
-                      0 <= C, C <= 3,
-                      0 <= B, B <= 1)
-    def transition(M, C, B, Mx, Cx, Bx):
-        Formulas  = { Bx == 1 - B }
-        Formulas |= { z3.Implies(B == 1, 
-                                 z3.And(1 <= M - Mx + C - Cx, 
-                                        2 >= M - Mx + C - Cx,
-                                        Mx <= M, 
-                                        Cx <= C)
-                                ),
-                      z3.Implies(B == 0, 
-                                 z3.And(1 <= Mx - M + Cx - C,
-                                        2 >= Mx - M + Cx - C,
-                                        Mx >= M, 
-                                        Cx >= C)
-                                )
-                    }
-        return z3.And(Formulas)
+                 numbersep     = 0.4cm,
+                 xleftmargin   = 0.0cm,
+                 xrightmargin  = 0.0cm,
+               ]{typescript}
+const M = Z3.Int.const('M'); const MX = Z3.Int.const('MX');
+const C = Z3.Int.const('C'); const CX = Z3.Int.const('CX');
+const B = Z3.Int.const('B'); const BX = Z3.Int.const('BX');
+
+function start(M: Arith, C: Arith, B: Arith): Bool {
+    return Z3.And(M.eq(3), C.eq(3), B.eq(1));
+}
+
+function goal(M: Arith, C: Arith, B: Arith): Bool {
+    return Z3.And(M.eq(0), C.eq(0), B.eq(0));
+}
+
+function invariant(M: Arith, C: Arith, B: Arith): Bool[] {
+    return [ Z3.Or(M.eq(0), M.eq(3), M.eq(C)),  // M = 0 ∨ M = 3 ∨ M = C
+             M.ge(0), M.le(3),                  // 0 ≤ M ≤ 3 
+             C.ge(0), C.le(3),                  // 0 ≤ C ≤ 3 
+             B.ge(0), B.le(1)                   // 0 ≤ B ≤ 1 
+           ];
+}
+
+function boatOK(Ma: Arith, Ca: Arith, Ba: Arith,
+                Mb: Arith, Cb: Arith, Bb: Arith): Bool
+{
+    const diffM = Ma.sub(Mb);            // Ma - Mb
+    const diffC = Ca.sub(Cb);            // Ca - Cb
+    const totalDiff = diffM.add(diffC);  // Ma - Mb + Ma - Mb
+            // B = 1 → 1 ≤ Ma - Mb + Ma - Mb ≤ 2 ∧ Mb ≤ Ma ∧ Cb ≤ Ca
+   return Z3.Implies(Ba.eq(1),
+                     Z3.And(totalDiff.ge(1), totalDiff.le(2), Mb.le(Ma), Cb.le(Ca)));
+}
+
+function transition(Ma: Arith, Ca: Arith, Ba: Arith,
+                    Mb: Arith, Cb: Arith, Bb: Arith): Bool[] { 
+    const formulas = [ Bb.eq(Ba.mul(-1).add(1)) ]; // Bb = 1 - Ba
+    formulas.push(boatOK(Ma, Ca, Ba, Mb, Cb, Bb));
+    formulas.push(boatOK(Mb, Cb, Bb, Ma, Ca, Ba));
+    return formulas;
+}
 \end{minted}
 \vspace*{-0.3cm}
 \caption{Solving The Missionaries-and-Cannibals-Problem with \texttt{Z3}, part \texttt{I}.}
@@ -2287,41 +2294,39 @@ the associated symbolic transition system using the constraint solver \texttt{Z3
                  firstnumber   = 1,
                  bgcolor       = sepia,
                  numbers       = left,
-                 numbersep     = -0.2cm,
-                 xleftmargin   = 0.8cm,
-                 xrightmargin  = 0.8cm,
-               ]{python3}
-    def missionaries_CSP(n):
-        S = z3.Solver()
-        Ms = [z3.Int(f'M{i}') for i in range(n+1)]
-        Is = [z3.Int(f'C{i}') for i in range(n+1)]
-        Bs = [z3.Int(f'B{i}') for i in range(n+1)]
-        Constraints  = { start(Ms[0], Is[0], Bs[0]) }  # start state
-        Constraints |= { goal( Ms[n], Is[n], Bs[n]) }  # goal state
-        for i in range(n):
-            Constraints.add(invariant(Ms[i], Is[i], Bs[i]))
-            Constraints.add(transition(Ms[i  ], Is[i  ], Bs[i  ], 
-                                       Ms[i+1], Is[i+1], Bs[i+1]))
-        S.add(Constraints)
-        result = str(S.check())
-        if result == 'sat':
-            Model = S.model()
-            Solution = (   { f'M{i}': Model[Ms[i]] for i in range(n+1) }
-                         | { f'C{i}': Model[Is[i]] for i in range(n+1) }
-                         | { f'B{i}': Model[Bs[i]] for i in range(n+1) }
-                       )
-            return { key: Solution[key].as_long() for key in Solution }            
-        else:
-            return None
-    
-    def find_solution():
-        n = 1
-        while True:
-            print(n)
-            Solution = missionaries_CSP(n)
-            if Solution != None:
-                return n, Solution
-            n += 2    
+                 numbersep     = 0.4cm,
+                 xleftmargin   = 0.0cm,
+                 xrightmargin  = 0.0cm,
+               ]{typescript}
+import { RecursiveMap as Map } from "recursive-set";
+
+async function missionariesCSP(n: number): Promise<Map<string, number>> {
+    const solver = new Z3.Solver();
+    const Ms = [], Cs = [], Bs = [];
+    for (let i = 0; i <= n; i++) {
+        Ms.push(Z3.Int.const(`M${i}`));
+        Cs.push(Z3.Int.const(`C${i}`));
+        Bs.push(Z3.Int.const(`B${i}`));
+    }
+    solver.add(start(Ms[0], Cs[0], Bs[0]));
+    solver.add( goal(Ms[n], Cs[n], Bs[n]));
+    for (let i = 0; i < n; ++i) {
+        solver.add(...invariant(Ms[i], Cs[i], Bs[i]));
+        solver.add(...transition(Ms[i], Cs[i], Bs[i], Ms[i+1], Cs[i+1], Bs[i+1]));
+    }
+    solver.add(...invariant(Ms[n], Cs[n], Bs[n]));
+    const result = await solver.check();
+    if (result == 'sat') {
+        const model = solver.model();
+        const solution = new Map<string, number>();
+        for (let i = 0; i <= n; i++) {
+            solution.set(`M${i}`, parseInt(model.eval(Ms[i]).toString()));
+            solution.set(`C${i}`, parseInt(model.eval(Cs[i]).toString()));
+            solution.set(`B${i}`, parseInt(model.eval(Bs[i]).toString()));
+        }
+        return solution;
+    } 
+}
 \end{minted}
 \vspace*{-0.3cm}
 \caption{Solving The Missionaries-and-Cannibals-Problem with \texttt{Z3}, part \texttt{II}.}

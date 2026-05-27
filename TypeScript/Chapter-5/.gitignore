@@ -1,5 +1,6 @@
 .ipynb_checkpoints/*.ipynb
 Alice-and-Bob.ipynb
+Bridge-Torch-Z3.ipynb
 Crypto-Arithmetic.ipynb
 FOL-Parser-Class.ts
 Japanese-Z3.ipynb
